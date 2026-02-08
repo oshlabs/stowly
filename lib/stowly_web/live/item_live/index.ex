@@ -248,6 +248,7 @@ defmodule StowlyWeb.ItemLive.Index do
             <th>Category</th>
             <th>Status</th>
             <th>Qty</th>
+            <th>Location</th>
             <th>Tags</th>
             <th></th>
           </tr>
@@ -277,6 +278,9 @@ defmodule StowlyWeb.ItemLive.Index do
               </span>
             </td>
             <td>{item.quantity}</td>
+            <td>
+              <span :if={item.storage_location}>{item.storage_location.name}</span>
+            </td>
             <td>
               <div class="flex flex-wrap gap-1">
                 <span
