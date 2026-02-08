@@ -338,7 +338,7 @@ defmodule StowlyWeb.CollectionLive.Settings do
         <.simple_form for={@form} phx-change="validate_category" phx-submit="save_category">
           <.input field={@form[:name]} type="text" label="Name" />
           <.input field={@form[:description]} type="text" label="Description" />
-          <.input field={@form[:color]} type="text" label="Color" placeholder="#3b82f6" />
+          <.color_input field={@form[:color]} label="Color" />
           <.input
             field={@form[:parent_id]}
             type="select"
@@ -400,7 +400,7 @@ defmodule StowlyWeb.CollectionLive.Settings do
         <h3 class="font-bold mb-4">{if @editing, do: "Edit Tag", else: "New Tag"}</h3>
         <.simple_form for={@form} phx-change="validate_tag" phx-submit="save_tag">
           <.input field={@form[:name]} type="text" label="Name" />
-          <.input field={@form[:color]} type="text" label="Color" placeholder="#3b82f6" />
+          <.color_input field={@form[:color]} label="Color" />
           <:actions>
             <.button type="submit" class="btn-primary">Save Tag</.button>
             <.button :if={@editing} type="button" class="btn-ghost" phx-click="cancel_edit">

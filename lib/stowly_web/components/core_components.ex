@@ -281,6 +281,73 @@ defmodule StowlyWeb.CoreComponents do
     """
   end
 
+  @color_presets ~w(#ef4444 #f97316 #f59e0b #22c55e #14b8a6 #3b82f6 #6366f1 #a855f7 #ec4899 #64748b)
+
+  @doc """
+  Renders a text input with a color picker dropdown.
+  """
+  attr :field, Phoenix.HTML.FormField, required: true
+  attr :label, :string, default: nil
+
+  def color_input(assigns) do
+    field = assigns.field
+    errors = if Phoenix.Component.used_input?(field), do: field.errors, else: []
+
+    assigns =
+      assigns
+      |> assign(:id, field.id)
+      |> assign(:name, field.name)
+      |> assign(:value, field.value || "")
+      |> assign(:errors, Enum.map(errors, &translate_error(&1)))
+      |> assign(:presets, @color_presets)
+
+    ~H"""
+    <fieldset class="fieldset">
+      <label :if={@label} class="fieldset-label" for={@id}>{@label}</label>
+      <div id={"#{@id}-color-picker"} phx-hook="ColorPickerHook" class="relative">
+        <div class="flex items-center gap-2">
+          <input
+            type="text"
+            name={@name}
+            id={@id}
+            value={@value}
+            class="input input-bordered w-full"
+            placeholder="#3b82f6"
+          />
+          <button
+            type="button"
+            data-swatch
+            class="w-10 h-10 rounded border-2 border-base-300 cursor-pointer shrink-0"
+            style={"background-color: #{if @value != "", do: @value, else: "transparent"}"}
+          >
+          </button>
+        </div>
+        <div data-panel class="hidden absolute right-0 z-50 mt-2 p-3 bg-base-100 rounded-box shadow-xl border border-base-300 w-64">
+          <div class="grid grid-cols-5 gap-2 mb-3">
+            <button
+              :for={color <- @presets}
+              type="button"
+              data-preset={color}
+              class="w-10 h-10 rounded cursor-pointer border border-base-300"
+              style={"background-color: #{color}"}
+            >
+            </button>
+          </div>
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-xs text-base-content/60">Custom:</span>
+            <input type="color" class="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" data-cancel class="btn btn-ghost btn-xs">Cancel</button>
+            <button type="button" data-ok class="btn btn-primary btn-xs">OK</button>
+          </div>
+        </div>
+      </div>
+      <.error :for={msg <- @errors}>{msg}</.error>
+    </fieldset>
+    """
+  end
+
   @doc """
   Renders a label.
   """
