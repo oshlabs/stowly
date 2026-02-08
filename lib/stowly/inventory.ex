@@ -168,18 +168,42 @@ defmodule Stowly.Inventory do
       end
 
     query =
-      case Keyword.get(opts, :tag_id) do
+      case Keyword.get(opts, :tag_filter) do
         nil ->
           query
 
-        tag_id ->
-          tag_id = if is_binary(tag_id), do: String.to_integer(tag_id), else: tag_id
+        :none ->
+          where(query, [i], false)
 
-          from(i in query,
-            join: it in "item_tags",
-            on: it.item_id == i.id,
-            where: it.tag_id == ^tag_id
-          )
+        filter when is_list(filter) ->
+          {include_no_tag, tag_ids} = Enum.split_with(filter, &(&1 == :no_tag))
+          has_no_tag = include_no_tag != []
+
+          case {has_no_tag, tag_ids} do
+            {true, []} ->
+              from(i in query,
+                left_join: it in "item_tags",
+                on: it.item_id == i.id,
+                where: is_nil(it.tag_id),
+                distinct: true
+              )
+
+            {false, tag_ids} ->
+              from(i in query,
+                join: it in "item_tags",
+                on: it.item_id == i.id,
+                where: it.tag_id in ^tag_ids,
+                distinct: true
+              )
+
+            {true, tag_ids} ->
+              from(i in query,
+                left_join: it in "item_tags",
+                on: it.item_id == i.id,
+                where: it.tag_id in ^tag_ids or is_nil(it.tag_id),
+                distinct: true
+              )
+          end
       end
 
     query

@@ -16,7 +16,7 @@ defmodule StowlyWeb.ItemLive.Index do
        categories: Inventory.list_categories(collection),
        tags: Inventory.list_tags(collection),
        filter_category: nil,
-       filter_tag: nil,
+       filter_tag_ids: :all,
        filter_status: nil
      )
      |> load_items()}
@@ -50,9 +50,56 @@ defmodule StowlyWeb.ItemLive.Index do
      socket
      |> assign(
        filter_category: blank_to_nil(params["category_id"]),
-       filter_tag: blank_to_nil(params["tag_id"]),
        filter_status: blank_to_nil(params["status"])
      )
+     |> load_items()}
+  end
+
+  def handle_event("toggle_tag", %{"id" => id}, socket) do
+    tag_id =
+      case id do
+        "no_tag" -> :no_tag
+        other -> String.to_integer(other)
+      end
+
+    all_ids = [:no_tag | Enum.map(socket.assigns.tags, & &1.id)]
+
+    current =
+      case socket.assigns.filter_tag_ids do
+        :all -> all_ids
+        :none -> []
+        list -> list
+      end
+
+    updated =
+      if tag_id in current,
+        do: List.delete(current, tag_id),
+        else: [tag_id | current]
+
+    updated =
+      cond do
+        updated == [] -> :none
+        Enum.sort(updated) == Enum.sort(all_ids) -> :all
+        true -> updated
+      end
+
+    {:noreply,
+     socket
+     |> assign(filter_tag_ids: updated)
+     |> load_items()}
+  end
+
+  def handle_event("select_all_tags", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(filter_tag_ids: :all)
+     |> load_items()}
+  end
+
+  def handle_event("select_no_tags", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(filter_tag_ids: :none)
      |> load_items()}
   end
 
@@ -75,8 +122,14 @@ defmodule StowlyWeb.ItemLive.Index do
     opts =
       []
       |> maybe_add(:category_id, socket.assigns.filter_category)
-      |> maybe_add(:tag_id, socket.assigns.filter_tag)
       |> maybe_add(:status, socket.assigns.filter_status)
+
+    opts =
+      case socket.assigns.filter_tag_ids do
+        :all -> opts
+        :none -> [{:tag_filter, :none} | opts]
+        tag_ids -> [{:tag_filter, tag_ids} | opts]
+      end
 
     assign(socket, :items, Inventory.list_items(socket.assigns.collection, opts))
   end
@@ -106,7 +159,7 @@ defmodule StowlyWeb.ItemLive.Index do
       </:actions>
     </.header>
 
-    <div class="flex flex-wrap gap-2 mt-4">
+    <div class="flex flex-wrap gap-2 mt-4 items-center">
       <form phx-change="filter" class="flex flex-wrap gap-2">
         <select name="status" class="select select-bordered select-sm">
           <option value="">All Statuses</option>
@@ -125,19 +178,61 @@ defmodule StowlyWeb.ItemLive.Index do
             {cat.name}
           </option>
         </select>
-
-        <select name="tag_id" class="select select-bordered select-sm">
-          <option value="">All Tags</option>
-          <option
-            :for={tag <- @tags}
-            value={tag.id}
-            selected={@filter_tag == to_string(tag.id)}
-            style={tag.color && "color: #{tag.color}; font-weight: 500"}
-          >
-            {tag.name}
-          </option>
-        </select>
       </form>
+    </div>
+
+    <%
+      tag_selected? = fn id ->
+        @filter_tag_ids == :all or (is_list(@filter_tag_ids) and id in @filter_tag_ids)
+      end
+    %>
+    <div :if={@tags != []} class="flex flex-wrap gap-3 mt-3 items-center">
+      <span class="text-sm text-base-content/60">Tags:</span>
+      <button
+        type="button"
+        class="badge badge-sm badge-outline cursor-pointer select-none"
+        style={if @filter_tag_ids == :none, do: "outline: 2px solid currentColor; outline-offset: 2px", else: "opacity: 0.4"}
+        phx-click="select_no_tags"
+      >
+        None
+      </button>
+      <button
+        type="button"
+        class="badge badge-sm badge-outline cursor-pointer select-none"
+        style={if @filter_tag_ids == :all, do: "outline: 2px solid currentColor; outline-offset: 2px", else: "opacity: 0.4"}
+        phx-click="select_all_tags"
+      >
+        All
+      </button>
+      <button
+        type="button"
+        class="badge badge-sm badge-outline cursor-pointer select-none"
+        style={if(tag_selected?.(:no_tag), do: "outline: 2px solid currentColor; outline-offset: 2px", else: "opacity: 0.4")}
+        phx-click="toggle_tag"
+        phx-value-id="no_tag"
+      >
+        No Tag
+      </button>
+      <button
+        :for={tag <- @tags}
+        type="button"
+        class="badge badge-sm cursor-pointer select-none"
+        style={
+          [
+            tag.color && "background-color: #{tag.color}; color: white; border-color: #{tag.color}",
+            if(tag_selected?.(tag.id),
+              do: "outline: 2px solid #{tag.color || "currentColor"}; outline-offset: 2px",
+              else: "opacity: 0.4"
+            )
+          ]
+          |> Enum.filter(& &1)
+          |> Enum.join("; ")
+        }
+        phx-click="toggle_tag"
+        phx-value-id={tag.id}
+      >
+        {tag.name}
+      </button>
     </div>
 
     <div :if={@items == []} class="text-center py-12 text-base-content/50 mt-4">
