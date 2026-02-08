@@ -8,7 +8,6 @@ defmodule Stowly.Repo.Migrations.CreateCategories do
       add :name, :string, null: false
       add :slug, :string, null: false
       add :description, :text
-      add :color, :string
       add :position, :integer, default: 0
 
       timestamps(type: :utc_datetime)

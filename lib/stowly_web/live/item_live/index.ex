@@ -263,11 +263,7 @@ defmodule StowlyWeb.ItemLive.Index do
               </.link>
             </td>
             <td>
-              <span
-                :if={item.category}
-                class="badge badge-sm"
-                style={item.category.color && "background-color: #{item.category.color}; color: white; border-color: #{item.category.color}"}
-              >
+              <span :if={item.category} class="badge badge-sm">
                 {item.category.name}
               </span>
             </td>

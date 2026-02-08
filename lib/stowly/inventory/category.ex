@@ -6,7 +6,6 @@ defmodule Stowly.Inventory.Category do
     field :name, :string
     field :slug, :string
     field :description, :string
-    field :color, :string
     field :position, :integer, default: 0
 
     belongs_to :collection, Stowly.Inventory.Collection
@@ -18,7 +17,7 @@ defmodule Stowly.Inventory.Category do
 
   def changeset(category, attrs) do
     category
-    |> cast(attrs, [:name, :description, :color, :position, :parent_id])
+    |> cast(attrs, [:name, :description, :position, :parent_id])
     |> validate_required([:name])
     |> maybe_generate_slug()
     |> validate_format(:slug, ~r/^[a-z0-9-]+$/,

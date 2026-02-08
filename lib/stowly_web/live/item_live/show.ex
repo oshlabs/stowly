@@ -101,10 +101,7 @@ defmodule StowlyWeb.ItemLive.Show do
           <div :if={@item.category} class="stat">
             <div class="stat-title">Category</div>
             <div class="stat-value text-lg">
-              <span
-                class="badge"
-                style={@item.category.color && "background-color: #{@item.category.color}; color: white; border-color: #{@item.category.color}"}
-              >
+              <span class="badge">
                 {@item.category.name}
               </span>
             </div>

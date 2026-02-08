@@ -338,7 +338,6 @@ defmodule StowlyWeb.CollectionLive.Settings do
         <.simple_form for={@form} phx-change="validate_category" phx-submit="save_category">
           <.input field={@form[:name]} type="text" label="Name" />
           <.input field={@form[:description]} type="text" label="Description" />
-          <.color_input field={@form[:color]} label="Color" />
           <.input
             field={@form[:parent_id]}
             type="select"
@@ -366,11 +365,6 @@ defmodule StowlyWeb.CollectionLive.Settings do
         <div :if={@categories == []} class="text-base-content/50">No categories yet</div>
         <div :for={category <- @categories} class="flex items-center justify-between py-2 border-b border-base-300">
           <div class="flex items-center gap-2">
-            <span
-              :if={category.color}
-              class="w-3 h-3 rounded-full inline-block"
-              style={"background-color: #{category.color}"}
-            />
             <span>{category.name}</span>
             <span :if={category.parent_id} class="badge badge-ghost badge-sm">sub</span>
           </div>

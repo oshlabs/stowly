@@ -31,26 +31,12 @@ defmodule StowlyWeb.ItemLive.FormComponent do
             </.input>
           </div>
 
-          <fieldset class="fieldset">
-            <label class="fieldset-label" for={@form[:category_id].id}>Category</label>
-            <% selected_cat = Enum.find(@categories, &(to_string(&1.id) == to_string(@form[:category_id].value))) %>
-            <select
-              id={@form[:category_id].id}
-              name={@form[:category_id].name}
-              class="select select-bordered w-full"
-              style={selected_cat && selected_cat.color && "color: #{selected_cat.color}; font-weight: 500"}
-            >
-              <option value="">None</option>
-              <option
-                :for={cat <- @categories}
-                value={cat.id}
-                selected={to_string(cat.id) == to_string(@form[:category_id].value)}
-                style={cat.color && "color: #{cat.color}; font-weight: 500"}
-              >
-                {cat.name}
-              </option>
-            </select>
-          </fieldset>
+          <.input field={@form[:category_id]} type="select" label="Category">
+            <option value="">None</option>
+            <option :for={cat <- @categories} value={cat.id}>
+              {cat.name}
+            </option>
+          </.input>
 
           <.input field={@form[:storage_location_id]} type="select" label="Storage Location">
             <option value="">None</option>
