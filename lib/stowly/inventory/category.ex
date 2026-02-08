@@ -24,7 +24,10 @@ defmodule Stowly.Inventory.Category do
     |> validate_format(:slug, ~r/^[a-z0-9-]+$/,
       message: "must be lowercase alphanumeric with dashes"
     )
-    |> unique_constraint([:collection_id, :slug])
+    |> unique_constraint([:collection_id, :slug],
+      error_key: :name,
+      message: "a category with this name already exists in this collection"
+    )
     |> foreign_key_constraint(:parent_id)
   end
 

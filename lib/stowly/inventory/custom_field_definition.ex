@@ -28,7 +28,10 @@ defmodule Stowly.Inventory.CustomFieldDefinition do
     |> validate_format(:slug, ~r/^[a-z0-9-]+$/,
       message: "must be lowercase alphanumeric with dashes"
     )
-    |> unique_constraint([:collection_id, :slug])
+    |> unique_constraint([:collection_id, :slug],
+      error_key: :name,
+      message: "a custom field with this name already exists in this collection"
+    )
   end
 
   defp maybe_generate_slug(changeset) do

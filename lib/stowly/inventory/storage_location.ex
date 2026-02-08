@@ -40,7 +40,10 @@ defmodule Stowly.Inventory.StorageLocation do
     |> validate_format(:slug, ~r/^[a-z0-9-]+$/,
       message: "must be lowercase alphanumeric with dashes"
     )
-    |> unique_constraint([:collection_id, :slug])
+    |> unique_constraint([:collection_id, :slug],
+      error_key: :name,
+      message: "a location with this name already exists in this collection"
+    )
     |> foreign_key_constraint(:parent_id)
     |> validate_not_self_parent()
   end

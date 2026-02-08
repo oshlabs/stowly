@@ -108,7 +108,8 @@ defmodule Stowly.InventoryTest do
       category_fixture(collection, %{name: "Laptops"})
 
       assert {:error, changeset} = Inventory.create_category(collection, %{name: "Laptops"})
-      assert {"has already been taken", _} = changeset.errors[:collection_id]
+      assert {msg, _} = changeset.errors[:name]
+      assert msg =~ "already exists"
     end
 
     test "update_category/2 updates the category", %{collection: collection} do
@@ -149,7 +150,8 @@ defmodule Stowly.InventoryTest do
       tag_fixture(collection, %{name: "Vintage"})
 
       assert {:error, changeset} = Inventory.create_tag(collection, %{name: "Vintage"})
-      assert {"has already been taken", _} = changeset.errors[:collection_id]
+      assert {msg, _} = changeset.errors[:name]
+      assert msg =~ "already exists"
     end
 
     test "update_tag/2 updates the tag", %{collection: collection} do
