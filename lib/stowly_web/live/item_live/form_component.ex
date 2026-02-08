@@ -64,21 +64,19 @@ defmodule StowlyWeb.ItemLive.FormComponent do
         <div class="mt-4">
           <label class="fieldset-label">Tags</label>
           <div class="flex flex-wrap gap-2 mt-1">
-            <label :for={tag <- @tags} class="label cursor-pointer gap-1">
+            <label
+              :for={tag <- @tags}
+              class={["badge gap-1 cursor-pointer select-none", tag.id in @selected_tag_ids && "ring-2 ring-offset-1"]}
+              style={tag.color && "background-color: #{tag.color}; color: white; border-color: #{tag.color}"}
+            >
               <input
                 type="checkbox"
                 name="tag_ids[]"
                 value={tag.id}
                 checked={tag.id in @selected_tag_ids}
-                class="checkbox checkbox-sm"
-                style={tag.color && "border-color: #{tag.color}; --chkbg: #{tag.color}; --chkfg: white"}
+                class="hidden"
               />
-              <span
-                class="label-text text-sm"
-                style={tag.color && "color: #{tag.color}; font-weight: 500"}
-              >
-                {tag.name}
-              </span>
+              {tag.name}
             </label>
           </div>
           <input type="hidden" name="tag_ids[]" value="" />
