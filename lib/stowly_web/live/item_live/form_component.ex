@@ -33,7 +33,9 @@ defmodule StowlyWeb.ItemLive.FormComponent do
 
           <.input field={@form[:category_id]} type="select" label="Category">
             <option value="">None</option>
-            <option :for={cat <- @categories} value={cat.id}>{cat.name}</option>
+            <option :for={cat <- @categories} value={cat.id} style={cat.color && "color: #{cat.color}; font-weight: 500"}>
+              {if(cat.color, do: "\u25CF ", else: "")}{cat.name}
+            </option>
           </.input>
 
           <.input field={@form[:storage_location_id]} type="select" label="Storage Location">
@@ -55,8 +57,14 @@ defmodule StowlyWeb.ItemLive.FormComponent do
                 value={tag.id}
                 checked={tag.id in @selected_tag_ids}
                 class="checkbox checkbox-sm"
+                style={tag.color && "border-color: #{tag.color}; --chkbg: #{tag.color}; --chkfg: white"}
               />
-              <span class="label-text text-sm">{tag.name}</span>
+              <span
+                class="label-text text-sm"
+                style={tag.color && "color: #{tag.color}; font-weight: 500"}
+              >
+                {tag.name}
+              </span>
             </label>
           </div>
           <input type="hidden" name="tag_ids[]" value="" />
