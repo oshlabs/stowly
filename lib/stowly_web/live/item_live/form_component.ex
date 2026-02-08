@@ -34,7 +34,7 @@ defmodule StowlyWeb.ItemLive.FormComponent do
           <.input field={@form[:category_id]} type="select" label="Category">
             <option value="">None</option>
             <option :for={cat <- @categories} value={cat.id} style={cat.color && "color: #{cat.color}; font-weight: 500"}>
-              {if(cat.color, do: "\u25CF ", else: "")}{cat.name}
+              {cat.name}
             </option>
           </.input>
 
