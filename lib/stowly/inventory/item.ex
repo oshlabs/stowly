@@ -9,8 +9,7 @@ defmodule Stowly.Inventory.Item do
     field :description, :string
     field :quantity, :integer, default: 1
     field :notes, :string
-    field :barcode, :string
-    field :qr_data, :string
+    field :code, :string
     field :status, :string, default: "active"
 
     belongs_to :collection, Stowly.Inventory.Collection
@@ -34,8 +33,7 @@ defmodule Stowly.Inventory.Item do
       :description,
       :quantity,
       :notes,
-      :barcode,
-      :qr_data,
+      :code,
       :status,
       :category_id,
       :storage_location_id

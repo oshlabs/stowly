@@ -15,7 +15,7 @@ defmodule Stowly.Repo.Migrations.AddSearchIndex do
                 setweight(to_tsvector('english', coalesce(NEW.name, '')), 'A') ||
                 setweight(to_tsvector('english', coalesce(NEW.description, '')), 'B') ||
                 setweight(to_tsvector('english', coalesce(NEW.notes, '')), 'C') ||
-                setweight(to_tsvector('english', coalesce(NEW.barcode, '')), 'C');
+                setweight(to_tsvector('english', coalesce(NEW.code, '')), 'C');
               RETURN NEW;
             END
             $$ LANGUAGE plpgsql;

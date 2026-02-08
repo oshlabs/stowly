@@ -120,7 +120,7 @@ defmodule StowlyWeb.LabelLive.FormComponent do
   defp default_element("barcode") do
     %{
       "type" => "barcode",
-      "field" => "barcode",
+      "field" => "code",
       "x" => 1,
       "y" => 15,
       "width" => 40,
@@ -129,7 +129,7 @@ defmodule StowlyWeb.LabelLive.FormComponent do
   end
 
   defp default_element("qr") do
-    %{"type" => "qr", "field" => "qr_data", "x" => 1, "y" => 1, "width" => 15, "height" => 15}
+    %{"type" => "qr", "field" => "code", "x" => 1, "y" => 1, "width" => 15, "height" => 15}
   end
 
   defp default_element(_), do: %{"type" => "text", "text" => "", "x" => 0, "y" => 0}
@@ -164,8 +164,7 @@ defmodule StowlyWeb.LabelLive.FormComponent do
     {"Location", "location"},
     {"Quantity", "quantity"},
     {"Status", "status"},
-    {"Barcode", "barcode"},
-    {"QR Data", "qr_data"},
+    {"Code", "code"},
     {"Notes", "notes"}
   ]
 

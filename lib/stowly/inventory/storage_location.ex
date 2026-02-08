@@ -9,8 +9,7 @@ defmodule Stowly.Inventory.StorageLocation do
     field :slug, :string
     field :location_type, :string, default: "other"
     field :description, :string
-    field :barcode, :string
-    field :qr_data, :string
+    field :code, :string
     field :position, :integer, default: 0
 
     belongs_to :collection, Stowly.Inventory.Collection
@@ -29,8 +28,7 @@ defmodule Stowly.Inventory.StorageLocation do
       :name,
       :location_type,
       :description,
-      :barcode,
-      :qr_data,
+      :code,
       :position,
       :parent_id
     ])

@@ -58,7 +58,7 @@ defmodule Stowly.Labels do
 
   The template's `template` field contains a list of elements, each with:
   - `type`: "text", "field", "barcode", "qr"
-  - `field`: the item field name (for "field" type) or data source
+  - `field`: the item field name (for "field" type) or data source (defaults to "code")
   - `x`, `y`: position in mm
   - `font_size`: font size in pt (for text elements)
   - `width`, `height`: dimensions (for barcode/qr)
@@ -105,7 +105,7 @@ defmodule Stowly.Labels do
   end
 
   defp render_element(%{"type" => "barcode"} = el, item) do
-    data = resolve_field(item, Map.get(el, "field", "barcode"))
+    data = resolve_field(item, Map.get(el, "field", "code"))
 
     if data && data != "" do
       case Stowly.Codes.generate_barcode_svg(data) do
@@ -124,7 +124,7 @@ defmodule Stowly.Labels do
   end
 
   defp render_element(%{"type" => "qr"} = el, item) do
-    data = resolve_field(item, Map.get(el, "field", "qr_data"))
+    data = resolve_field(item, Map.get(el, "field", "code"))
 
     if data && data != "" do
       svg = Stowly.Codes.generate_qr_svg(data)
@@ -144,8 +144,7 @@ defmodule Stowly.Labels do
 
   defp resolve_field(item, "name"), do: item.name
   defp resolve_field(item, "description"), do: item.description
-  defp resolve_field(item, "barcode"), do: item.barcode
-  defp resolve_field(item, "qr_data"), do: item.qr_data
+  defp resolve_field(item, "code"), do: item.code
   defp resolve_field(item, "notes"), do: item.notes
   defp resolve_field(item, "status"), do: item.status
 

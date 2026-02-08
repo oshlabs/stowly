@@ -9,8 +9,7 @@ defmodule Stowly.Repo.Migrations.CreateItems do
       add :description, :text
       add :quantity, :integer, default: 1
       add :notes, :text
-      add :barcode, :string
-      add :qr_data, :string
+      add :code, :string
       add :status, :string, null: false, default: "active"
 
       timestamps(type: :utc_datetime)
@@ -19,6 +18,6 @@ defmodule Stowly.Repo.Migrations.CreateItems do
     create index(:items, [:collection_id])
     create index(:items, [:category_id])
     create index(:items, [:status])
-    create index(:items, [:barcode])
+    create index(:items, [:code])
   end
 end

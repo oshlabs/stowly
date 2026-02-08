@@ -9,8 +9,7 @@ defmodule Stowly.Repo.Migrations.CreateStorageLocations do
       add :slug, :string, null: false
       add :location_type, :string, null: false, default: "other"
       add :description, :text
-      add :barcode, :string
-      add :qr_data, :string
+      add :code, :string
       add :position, :integer, default: 0
 
       timestamps(type: :utc_datetime)

@@ -236,8 +236,7 @@ defmodule StowlyWeb.ItemLive.FormComponent do
           <input type="checkbox" checked={@show_identification} phx-click="toggle_identification" phx-target={@myself} />
           <div class="collapse-title font-medium">Identification</div>
           <div class="collapse-content space-y-2">
-            <.input field={@form[:barcode]} type="text" label="Barcode" />
-            <.input field={@form[:qr_data]} type="text" label="QR Data" />
+            <.input field={@form[:code]} type="text" label="Code (barcode / QR)" />
           </div>
         </div>
 
@@ -310,7 +309,7 @@ defmodule StowlyWeb.ItemLive.FormComponent do
        media: media,
        show_prices: prices != [],
        show_custom_fields: custom_field_values != %{},
-       show_identification: (item.barcode || item.qr_data) != nil,
+       show_identification: item.code != nil,
        show_photos: media != []
      )
      |> allow_upload(:photos,
