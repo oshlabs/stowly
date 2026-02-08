@@ -56,13 +56,9 @@ defmodule StowlyWeb.CollectionLive.Index do
       <p>Create your first collection to start organizing your inventory.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-      <.link
-        :for={collection <- @collections}
-        navigate={~p"/collections/#{collection}"}
-        class="card bg-base-200 shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-      >
-        <div class="card-body">
+    <div :if={@collections != []} class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+      <div :for={collection <- @collections} class="card bg-base-200 shadow-md hover:shadow-lg transition-shadow">
+        <.link navigate={~p"/collections/#{collection}"} class="card-body">
           <h2 class="card-title">
             <span :if={collection.icon} class="text-2xl">{collection.icon}</span>
             {collection.name}
@@ -70,17 +66,16 @@ defmodule StowlyWeb.CollectionLive.Index do
           <p :if={collection.description} class="text-base-content/70">
             {collection.description}
           </p>
-          <div class="card-actions justify-end mt-2">
-            <.link
-              patch={~p"/collections/#{collection}/edit"}
-              class="btn btn-ghost btn-sm"
-              phx-click={JS.push("noop")}
-            >
-              <.icon name="hero-pencil-square" class="h-4 w-4" />
-            </.link>
-          </div>
+        </.link>
+        <div class="card-actions justify-end px-6 pb-4">
+          <.link
+            patch={~p"/collections/#{collection}/edit"}
+            class="btn btn-ghost btn-sm"
+          >
+            <.icon name="hero-pencil-square" class="h-4 w-4" />
+          </.link>
         </div>
-      </.link>
+      </div>
     </div>
 
     <.modal
