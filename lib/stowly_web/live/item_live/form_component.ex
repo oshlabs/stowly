@@ -7,7 +7,7 @@ defmodule StowlyWeb.ItemLive.FormComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-h-[80vh] overflow-y-auto">
+    <div class="max-h-[80vh] overflow-y-auto px-1">
       <h3 class="text-lg font-bold mb-4">{@title}</h3>
 
       <.simple_form
