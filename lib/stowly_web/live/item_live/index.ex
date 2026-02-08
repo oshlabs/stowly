@@ -132,7 +132,7 @@ defmodule StowlyWeb.ItemLive.Index do
           class="select select-bordered select-sm"
           style={selected_tag && selected_tag.color && "color: #{selected_tag.color}; font-weight: 500"}
         >
-          <option value="">All Tags</option>
+          <option value="" style="color: inherit; font-weight: normal">All Tags</option>
           <option
             :for={tag <- @tags}
             value={tag.id}
