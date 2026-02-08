@@ -166,7 +166,15 @@ defmodule StowlyWeb.ItemLive.Index do
                 {item.name}
               </.link>
             </td>
-            <td>{item.category && item.category.name}</td>
+            <td>
+              <span
+                :if={item.category}
+                class="badge badge-sm"
+                style={item.category.color && "background-color: #{item.category.color}; color: white; border-color: #{item.category.color}"}
+              >
+                {item.category.name}
+              </span>
+            </td>
             <td>
               <span class={[
                 "badge badge-sm",
