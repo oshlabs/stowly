@@ -12,7 +12,8 @@ const CodeScannerHook = {
     this.canvas = null
     this.stream = null
     this.detector = null
-    this.animFrameId = null
+    this.scanning = false
+    this.scanTimer = null
 
     this.el.addEventListener("click", () => this.openScanner())
   },
@@ -22,7 +23,11 @@ const CodeScannerHook = {
       this.detector = new BarcodeDetector({ formats: FORMATS })
 
       this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
       })
 
       const modal = document.createElement("div")
@@ -50,7 +55,7 @@ const CodeScannerHook = {
       this.video.addEventListener("loadeddata", () => {
         this.canvas.width = this.video.videoWidth
         this.canvas.height = this.video.videoHeight
-        this.scanLoop(modal)
+        this.startScanLoop(modal)
       })
 
       modal.querySelector("[data-action=cancel]").addEventListener("click", () => {
@@ -97,15 +102,19 @@ const CodeScannerHook = {
     }
   },
 
-  async scanLoop(modal) {
-    if (!this.video || !this.detector) return
+  startScanLoop(modal) {
+    this.scanning = true
+    this.scanNext(modal)
+  },
+
+  async scanNext(modal) {
+    if (!this.scanning || !this.video || !this.detector) return
 
     try {
       const barcodes = await this.detector.detect(this.video)
       this.drawOverlay(barcodes)
 
       if (barcodes.length > 0) {
-        // Brief pause so the user sees the detection overlay
         await new Promise(r => setTimeout(r, 400))
         this.fillCode(barcodes[0].rawValue)
         this.closeScanner(modal)
@@ -115,7 +124,9 @@ const CodeScannerHook = {
       // ignore detection errors on individual frames
     }
 
-    this.animFrameId = requestAnimationFrame(() => this.scanLoop(modal))
+    if (this.scanning) {
+      this.scanTimer = setTimeout(() => this.scanNext(modal), 150)
+    }
   },
 
   fillCode(value) {
@@ -128,9 +139,10 @@ const CodeScannerHook = {
   },
 
   closeScanner(modal) {
-    if (this.animFrameId) {
-      cancelAnimationFrame(this.animFrameId)
-      this.animFrameId = null
+    this.scanning = false
+    if (this.scanTimer) {
+      clearTimeout(this.scanTimer)
+      this.scanTimer = null
     }
     if (this.stream) {
       this.stream.getTracks().forEach(t => t.stop())
@@ -146,8 +158,9 @@ const CodeScannerHook = {
   },
 
   destroyed() {
-    if (this.animFrameId) {
-      cancelAnimationFrame(this.animFrameId)
+    this.scanning = false
+    if (this.scanTimer) {
+      clearTimeout(this.scanTimer)
     }
     if (this.stream) {
       this.stream.getTracks().forEach(t => t.stop())
