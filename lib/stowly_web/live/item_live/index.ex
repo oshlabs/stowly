@@ -190,24 +190,24 @@ defmodule StowlyWeb.ItemLive.Index do
       <span class="text-sm text-base-content/60">Tags:</span>
       <button
         type="button"
-        class="badge badge-sm badge-outline cursor-pointer select-none"
-        style={if @filter_tag_ids == :none, do: "outline: 2px solid currentColor; outline-offset: 2px", else: "opacity: 0.4"}
+        class="badge badge-sm cursor-pointer select-none"
+        style={if(@filter_tag_ids == :none, do: "background-color: #6b7280; color: white; border-color: #6b7280; outline: 2px solid #6b7280; outline-offset: 2px", else: "background-color: #d1d5db; color: white; border-color: #d1d5db")}
         phx-click="select_no_tags"
       >
         None
       </button>
       <button
         type="button"
-        class="badge badge-sm badge-outline cursor-pointer select-none"
-        style={if @filter_tag_ids == :all, do: "outline: 2px solid currentColor; outline-offset: 2px", else: "opacity: 0.4"}
+        class="badge badge-sm cursor-pointer select-none"
+        style={if(@filter_tag_ids == :all, do: "background-color: #6b7280; color: white; border-color: #6b7280; outline: 2px solid #6b7280; outline-offset: 2px", else: "background-color: #d1d5db; color: white; border-color: #d1d5db")}
         phx-click="select_all_tags"
       >
         All
       </button>
       <button
         type="button"
-        class="badge badge-sm badge-outline cursor-pointer select-none"
-        style={if(tag_selected?.(:no_tag), do: "outline: 2px solid currentColor; outline-offset: 2px", else: "opacity: 0.4")}
+        class="badge badge-sm cursor-pointer select-none"
+        style={if(tag_selected?.(:no_tag), do: "background-color: #6b7280; color: white; border-color: #6b7280; outline: 2px solid #6b7280; outline-offset: 2px", else: "background-color: #d1d5db; color: white; border-color: #d1d5db")}
         phx-click="toggle_tag"
         phx-value-id="no_tag"
       >
@@ -263,9 +263,7 @@ defmodule StowlyWeb.ItemLive.Index do
               </.link>
             </td>
             <td>
-              <span :if={item.category} class="badge badge-sm">
-                {item.category.name}
-              </span>
+              <span :if={item.category}>{item.category.name}</span>
             </td>
             <td>
               <span class={[
