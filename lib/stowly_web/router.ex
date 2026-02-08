@@ -37,8 +37,6 @@ defmodule StowlyWeb.Router do
     live "/collections/:collection_id/locations", LocationLive.Index, :index
     live "/collections/:collection_id/locations/new", LocationLive.Index, :new
     live "/collections/:collection_id/locations/:id/edit", LocationLive.Index, :edit
-    live "/collections/:collection_id/locations/:id", LocationLive.Show, :show
-    live "/collections/:collection_id/locations/:id/show/edit", LocationLive.Show, :edit
 
     live "/collections/:collection_id/labels", LabelLive.Index, :index
     live "/collections/:collection_id/labels/new", LabelLive.Index, :new

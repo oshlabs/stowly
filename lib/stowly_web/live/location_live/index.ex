@@ -105,21 +105,13 @@ defmodule StowlyWeb.LocationLive.Index do
   defp location_tree(assigns) do
     ~H"""
     <div :for={location <- @locations} class={"ml-#{@level * 4}"}>
-      <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-base-200">
-        <.link
-          navigate={~p"/collections/#{@collection}/locations/#{location}"}
-          class="flex items-center gap-2 flex-1"
-        >
-          <span class="badge badge-ghost badge-sm">{location.location_type}</span>
-          <span class="font-medium">{location.name}</span>
-        </.link>
-        <.link
-          patch={~p"/collections/#{@collection}/locations/#{location}/edit"}
-          class="btn btn-ghost btn-xs"
-        >
-          <.icon name="hero-pencil-square" class="h-3 w-3" />
-        </.link>
-      </div>
+      <.link
+        patch={~p"/collections/#{@collection}/locations/#{location}/edit"}
+        class="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-base-200"
+      >
+        <span class="badge badge-ghost badge-sm">{location.location_type}</span>
+        <span class="font-medium">{location.name}</span>
+      </.link>
       <.location_tree
         :if={location.children != [] and Ecto.assoc_loaded?(location.children)}
         locations={location.children}
