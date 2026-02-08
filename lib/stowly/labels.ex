@@ -200,9 +200,11 @@ defmodule Stowly.Labels do
         _ -> {inner_w - total_gap, inner_h}
       end
 
+    total_pct = zones |> Enum.map(&Map.get(&1, "size", 100)) |> Enum.sum() |> max(1)
+
     {boxes, _offset} =
       Enum.reduce(zones, {[], 0}, fn zone, {acc, offset} ->
-        size_pct = Map.get(zone, "size", 100) / 100
+        size_pct = Map.get(zone, "size", 100) / total_pct
         zone_size = available * size_pct
 
         box =
