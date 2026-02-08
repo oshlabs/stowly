@@ -63,7 +63,7 @@ defmodule StowlyWeb.ItemLive.FormComponent do
         <%!-- Tags --%>
         <div class="mt-4">
           <label class="fieldset-label">Tags</label>
-          <div class="flex flex-wrap gap-2 mt-1">
+          <div class="flex flex-wrap gap-3 mt-1">
             <label
               :for={tag <- @tags}
               class="badge gap-1 cursor-pointer select-none"
