@@ -66,8 +66,18 @@ defmodule StowlyWeb.ItemLive.FormComponent do
           <div class="flex flex-wrap gap-2 mt-1">
             <label
               :for={tag <- @tags}
-              class={["badge gap-1 cursor-pointer select-none", tag.id in @selected_tag_ids && "ring-2 ring-offset-1"]}
-              style={tag.color && "background-color: #{tag.color}; color: white; border-color: #{tag.color}"}
+              class="badge gap-1 cursor-pointer select-none"
+              style={
+                [
+                  tag.color && "background-color: #{tag.color}; color: white; border-color: #{tag.color}",
+                  if(tag.id in @selected_tag_ids,
+                    do: "outline: 2px solid #{tag.color || "currentColor"}; outline-offset: 2px",
+                    else: "opacity: 0.5"
+                  )
+                ]
+                |> Enum.filter(& &1)
+                |> Enum.join("; ")
+              }
             >
               <input
                 type="checkbox"
