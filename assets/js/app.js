@@ -3,12 +3,14 @@ import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 
 import CameraHook from "./hooks/camera_hook"
+import CodeScannerHook from "./hooks/code_scanner_hook"
 import ColorPickerHook from "./hooks/color_picker_hook"
 import ScannerHook from "./hooks/scanner_hook"
 import ThemeHook from "./hooks/theme_hook"
 
 let Hooks = {
   CameraHook,
+  CodeScannerHook,
   ColorPickerHook,
   ScannerHook,
   ThemeHook

@@ -46,7 +46,34 @@ defmodule StowlyWeb.ItemLive.FormComponent do
             </option>
           </.input>
 
-          <.input field={@form[:code]} type="text" label="Code (barcode / QR)" />
+          <div>
+            <label class="fieldset-label">Code (barcode / QR)</label>
+            <div class="flex gap-2 items-center">
+              <input
+                type="text"
+                name={@form[:code].name}
+                value={@form[:code].value}
+                class="input input-bordered flex-1"
+                placeholder="Scan or enter code"
+              />
+              <button
+                type="button"
+                class="btn btn-outline btn-sm"
+                phx-click="create_code"
+                phx-target={@myself}
+              >
+                <.icon name="hero-bolt" class="h-4 w-4" /> Create
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline btn-sm"
+                id="code-scanner-btn"
+                phx-hook="CodeScannerHook"
+              >
+                <.icon name="hero-qr-code" class="h-4 w-4" /> Scan
+              </button>
+            </div>
+          </div>
         </div>
 
         <%!-- Tags --%>
@@ -328,6 +355,28 @@ defmodule StowlyWeb.ItemLive.FormComponent do
        form: to_form(changeset, action: :validate),
        selected_tag_ids: selected_tag_ids
      )}
+  end
+
+  def handle_event("create_code", _params, socket) do
+    code =
+      case socket.assigns.item.id do
+        nil -> "code:" <> Base.encode16(:crypto.strong_rand_bytes(6), case: :lower)
+        id -> "code:#{id}"
+      end
+
+    changeset =
+      socket.assigns.item
+      |> Inventory.change_item(Map.put(socket.assigns.form.params || %{}, "code", code))
+
+    {:noreply, assign(socket, form: to_form(changeset, action: :validate))}
+  end
+
+  def handle_event("scanned", %{"value" => value}, socket) do
+    changeset =
+      socket.assigns.item
+      |> Inventory.change_item(Map.put(socket.assigns.form.params || %{}, "code", value))
+
+    {:noreply, assign(socket, form: to_form(changeset, action: :validate))}
   end
 
   def handle_event("add_price", _params, socket) do
