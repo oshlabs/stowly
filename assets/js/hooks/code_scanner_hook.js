@@ -107,7 +107,7 @@ const CodeScannerHook = {
       if (barcodes.length > 0) {
         // Brief pause so the user sees the detection overlay
         await new Promise(r => setTimeout(r, 400))
-        this.pushEventTo(this.el, "scanned", { value: barcodes[0].rawValue })
+        this.fillCode(barcodes[0].rawValue)
         this.closeScanner(modal)
         return
       }
@@ -116,6 +116,15 @@ const CodeScannerHook = {
     }
 
     this.animFrameId = requestAnimationFrame(() => this.scanLoop(modal))
+  },
+
+  fillCode(value) {
+    const form = this.el.closest("form")
+    const input = form && form.querySelector('input[name="item[code]"]')
+    if (input) {
+      input.value = value
+      input.dispatchEvent(new Event("input", { bubbles: true }))
+    }
   },
 
   closeScanner(modal) {

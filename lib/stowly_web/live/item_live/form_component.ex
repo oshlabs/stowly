@@ -371,14 +371,6 @@ defmodule StowlyWeb.ItemLive.FormComponent do
     {:noreply, assign(socket, form: to_form(changeset, action: :validate))}
   end
 
-  def handle_event("scanned", %{"value" => value}, socket) do
-    changeset =
-      socket.assigns.item
-      |> Inventory.change_item(Map.put(socket.assigns.form.params || %{}, "code", value))
-
-    {:noreply, assign(socket, form: to_form(changeset, action: :validate))}
-  end
-
   def handle_event("add_price", _params, socket) do
     prices = socket.assigns.prices ++ [%{amount_cents: nil, currency: "EUR", vendor: nil}]
     {:noreply, assign(socket, prices: prices, show_prices: true)}
