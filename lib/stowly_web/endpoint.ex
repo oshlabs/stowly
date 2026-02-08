@@ -30,7 +30,7 @@ defmodule StowlyWeb.Endpoint do
   # Serve uploaded files
   plug Plug.Static,
     at: "/uploads",
-    from: {:stowly, "uploads"},
+    from: "uploads",
     gzip: false
 
   # Code reloading can be explicitly enabled under the
