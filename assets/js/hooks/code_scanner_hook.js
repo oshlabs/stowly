@@ -107,7 +107,7 @@ const CodeScannerHook = {
       if (barcodes.length > 0) {
         // Brief pause so the user sees the detection overlay
         await new Promise(r => setTimeout(r, 400))
-        this.pushEvent("scanned", { value: barcodes[0].rawValue })
+        this.pushEventTo(this.el, "scanned", { value: barcodes[0].rawValue })
         this.closeScanner(modal)
         return
       }
