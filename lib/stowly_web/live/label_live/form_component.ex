@@ -3,18 +3,28 @@ defmodule StowlyWeb.LabelLive.FormComponent do
 
   alias Stowly.Labels
 
+  @presets [
+    {"QR + Text", "qr_text"},
+    {"Text + Barcode", "text_barcode"},
+    {"Text Only", "text_only"},
+    {"QR Only", "qr_only"},
+    {"Blank", "blank"}
+  ]
+
   @impl true
   def update(%{template: template} = assigns, socket) do
     changeset = Labels.change_label_template(template)
+    layout = Labels.migrate_template_to_v2(template.template || %{})
 
-    elements = Map.get(template.template, "elements", [])
+    preview_template = %{template | template: layout}
 
     {:ok,
      socket
      |> assign(assigns)
      |> assign(:changeset, changeset)
      |> assign(:form, to_form(changeset))
-     |> assign(:elements, elements)}
+     |> assign(:layout, layout)
+     |> assign(:preview_svg, Labels.render_label_preview(preview_template))}
   end
 
   @impl true
@@ -24,42 +34,236 @@ defmodule StowlyWeb.LabelLive.FormComponent do
       |> Labels.change_label_template(params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, changeset: changeset, form: to_form(changeset))}
+    {:noreply,
+     socket
+     |> assign(changeset: changeset, form: to_form(changeset))
+     |> update_preview()}
   end
 
-  def handle_event("add_element", %{"type" => type}, socket) do
-    new_element = default_element(type)
-    elements = socket.assigns.elements ++ [new_element]
-    {:noreply, assign(socket, elements: elements)}
+  def handle_event("select_preset", %{"preset" => preset}, socket) do
+    layout = Labels.preset_layout(preset)
+    {:noreply, socket |> assign(:layout, layout) |> update_preview()}
   end
 
-  def handle_event("remove_element", %{"index" => index}, socket) do
-    index = String.to_integer(index)
-    elements = List.delete_at(socket.assigns.elements, index)
-    {:noreply, assign(socket, elements: elements)}
+  def handle_event("update_layout", params, socket) do
+    layout = socket.assigns.layout
+
+    layout =
+      layout
+      |> maybe_update(params, "direction")
+      |> maybe_update_number(params, "padding")
+      |> maybe_update_number(params, "gap")
+
+    {:noreply, socket |> assign(:layout, layout) |> update_preview()}
   end
 
-  def handle_event("update_element", %{"index" => index} = params, socket) do
-    index = String.to_integer(index)
-    element = Enum.at(socket.assigns.elements, index) || %{}
+  def handle_event("add_zone", _params, socket) do
+    layout = socket.assigns.layout
+    zones = Map.get(layout, "zones", [])
 
-    updated =
-      element
-      |> maybe_put(params, "x")
-      |> maybe_put(params, "y")
-      |> maybe_put(params, "font_size")
-      |> maybe_put(params, "font_weight")
-      |> maybe_put(params, "text")
-      |> maybe_put(params, "field")
-      |> maybe_put(params, "width")
-      |> maybe_put(params, "height")
+    if length(zones) >= 3 do
+      {:noreply, socket}
+    else
+      new_zone = %{
+        "size" => 50,
+        "align" => "left",
+        "valign" => "top",
+        "content" => [
+          %{
+            "type" => "field",
+            "field" => "name",
+            "font_size" => "medium",
+            "font_weight" => "normal"
+          }
+        ]
+      }
 
-    elements = List.replace_at(socket.assigns.elements, index, updated)
-    {:noreply, assign(socket, elements: elements)}
+      zones = rebalance_zones(zones ++ [new_zone])
+      layout = Map.put(layout, "zones", zones)
+      {:noreply, socket |> assign(:layout, layout) |> update_preview()}
+    end
+  end
+
+  def handle_event("remove_zone", %{"zone" => zone_idx}, socket) do
+    zone_idx = String.to_integer(zone_idx)
+    layout = socket.assigns.layout
+    zones = Map.get(layout, "zones", [])
+    zones = List.delete_at(zones, zone_idx)
+    zones = rebalance_zones(zones)
+    layout = Map.put(layout, "zones", zones)
+    {:noreply, socket |> assign(:layout, layout) |> update_preview()}
+  end
+
+  def handle_event("update_zone", %{"zone" => zone_idx} = params, socket) do
+    zone_idx = String.to_integer(zone_idx)
+    layout = socket.assigns.layout
+    zones = Map.get(layout, "zones", [])
+    zone = Enum.at(zones, zone_idx)
+
+    if zone do
+      prefix = "zone_"
+      suffix = "_#{zone_idx}"
+
+      zone =
+        zone
+        |> maybe_update_named(params, prefix, suffix, "align")
+        |> maybe_update_named(params, prefix, suffix, "valign")
+        |> maybe_update_named_int(params, prefix, suffix, "size")
+
+      zones = List.replace_at(zones, zone_idx, zone)
+      layout = Map.put(layout, "zones", zones)
+      {:noreply, socket |> assign(:layout, layout) |> update_preview()}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("set_zone_code_type", %{"zone" => zone_idx} = params, socket) do
+    code_type = Map.get(params, "code_type") || Map.get(params, "zone_code_type_#{zone_idx}")
+    zone_idx = String.to_integer(zone_idx)
+    layout = socket.assigns.layout
+    zones = Map.get(layout, "zones", [])
+    zone = Enum.at(zones, zone_idx)
+
+    if zone do
+      content = Map.get(zone, "content", [])
+
+      content =
+        case content do
+          [item | _] -> [Map.put(item, "type", code_type)]
+          _ -> [%{"type" => code_type, "field" => "code"}]
+        end
+
+      zone = Map.put(zone, "content", content)
+      zones = List.replace_at(zones, zone_idx, zone)
+      layout = Map.put(layout, "zones", zones)
+      {:noreply, socket |> assign(:layout, layout) |> update_preview()}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("add_content", %{"zone" => zone_idx, "type" => type}, socket) do
+    zone_idx = String.to_integer(zone_idx)
+    layout = socket.assigns.layout
+    zones = Map.get(layout, "zones", [])
+    zone = Enum.at(zones, zone_idx)
+
+    if zone do
+      new_item =
+        case type do
+          "text" ->
+            %{
+              "type" => "text",
+              "text" => "Label text",
+              "font_size" => "medium",
+              "font_weight" => "normal"
+            }
+
+          _ ->
+            %{
+              "type" => "field",
+              "field" => "name",
+              "font_size" => "medium",
+              "font_weight" => "normal"
+            }
+        end
+
+      content = Map.get(zone, "content", []) ++ [new_item]
+      zone = Map.put(zone, "content", content)
+      zones = List.replace_at(zones, zone_idx, zone)
+      layout = Map.put(layout, "zones", zones)
+      {:noreply, socket |> assign(:layout, layout) |> update_preview()}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("remove_content", %{"zone" => zone_idx, "item" => item_idx}, socket) do
+    zone_idx = String.to_integer(zone_idx)
+    item_idx = String.to_integer(item_idx)
+    layout = socket.assigns.layout
+    zones = Map.get(layout, "zones", [])
+    zone = Enum.at(zones, zone_idx)
+
+    if zone do
+      content = Map.get(zone, "content", []) |> List.delete_at(item_idx)
+      zone = Map.put(zone, "content", content)
+      zones = List.replace_at(zones, zone_idx, zone)
+      layout = Map.put(layout, "zones", zones)
+      {:noreply, socket |> assign(:layout, layout) |> update_preview()}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("update_content", %{"zone" => zone_idx, "item" => item_idx} = params, socket) do
+    zone_idx = String.to_integer(zone_idx)
+    item_idx = String.to_integer(item_idx)
+    layout = socket.assigns.layout
+    zones = Map.get(layout, "zones", [])
+    zone = Enum.at(zones, zone_idx)
+
+    if zone do
+      content = Map.get(zone, "content", [])
+      item = Enum.at(content, item_idx)
+
+      if item do
+        prefix = "content_"
+        suffix = "_#{zone_idx}_#{item_idx}"
+
+        item =
+          item
+          |> maybe_update(params, "font_size")
+          |> maybe_update(params, "font_weight")
+          |> maybe_update_named(params, prefix, suffix, "field")
+          |> maybe_update_named(params, prefix, suffix, "text")
+
+        content = List.replace_at(content, item_idx, item)
+        zone = Map.put(zone, "content", content)
+        zones = List.replace_at(zones, zone_idx, zone)
+        layout = Map.put(layout, "zones", zones)
+        {:noreply, socket |> assign(:layout, layout) |> update_preview()}
+      else
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event(
+        "move_content",
+        %{"zone" => zone_idx, "item" => item_idx, "dir" => dir},
+        socket
+      ) do
+    zone_idx = String.to_integer(zone_idx)
+    item_idx = String.to_integer(item_idx)
+    layout = socket.assigns.layout
+    zones = Map.get(layout, "zones", [])
+    zone = Enum.at(zones, zone_idx)
+
+    if zone do
+      content = Map.get(zone, "content", [])
+      new_idx = if dir == "up", do: item_idx - 1, else: item_idx + 1
+
+      if new_idx >= 0 and new_idx < length(content) do
+        item = Enum.at(content, item_idx)
+        content = List.delete_at(content, item_idx) |> List.insert_at(new_idx, item)
+        zone = Map.put(zone, "content", content)
+        zones = List.replace_at(zones, zone_idx, zone)
+        layout = Map.put(layout, "zones", zones)
+        {:noreply, socket |> assign(:layout, layout) |> update_preview()}
+      else
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("save", %{"label_template" => params}, socket) do
-    params = Map.put(params, "template", %{"elements" => socket.assigns.elements})
+    params = Map.put(params, "template", socket.assigns.layout)
     save_template(socket, socket.assigns.action, params)
   end
 
@@ -95,67 +299,86 @@ defmodule StowlyWeb.LabelLive.FormComponent do
 
   defp notify_parent(msg), do: send(self(), {__MODULE__, msg})
 
-  defp default_element("text") do
-    %{
-      "type" => "text",
-      "text" => "Label text",
-      "x" => 1,
-      "y" => 5,
-      "font_size" => 3,
-      "font_weight" => "normal"
+  defp update_preview(socket) do
+    changeset = socket.assigns.changeset
+    width = Ecto.Changeset.get_field(changeset, :width_mm) || 62
+    height = Ecto.Changeset.get_field(changeset, :height_mm) || 29
+
+    preview_template = %Labels.LabelTemplate{
+      width_mm: width,
+      height_mm: height,
+      template: socket.assigns.layout
     }
+
+    assign(socket, :preview_svg, Labels.render_label_preview(preview_template))
   end
 
-  defp default_element("field") do
-    %{
-      "type" => "field",
-      "field" => "name",
-      "x" => 1,
-      "y" => 5,
-      "font_size" => 3,
-      "font_weight" => "bold"
-    }
+  defp rebalance_zones([]), do: []
+
+  defp rebalance_zones(zones) do
+    each = div(100, length(zones))
+    remainder = rem(100, length(zones))
+
+    zones
+    |> Enum.with_index()
+    |> Enum.map(fn {zone, idx} ->
+      extra = if idx == 0, do: remainder, else: 0
+      Map.put(zone, "size", each + extra)
+    end)
   end
 
-  defp default_element("barcode") do
-    %{
-      "type" => "barcode",
-      "field" => "code",
-      "x" => 1,
-      "y" => 15,
-      "width" => 40,
-      "height" => 10
-    }
-  end
-
-  defp default_element("qr") do
-    %{"type" => "qr", "field" => "code", "x" => 1, "y" => 1, "width" => 15, "height" => 15}
-  end
-
-  defp default_element(_), do: %{"type" => "text", "text" => "", "x" => 0, "y" => 0}
-
-  defp maybe_put(element, params, key) do
+  defp maybe_update(map, params, key) do
     case Map.get(params, key) do
-      nil -> element
-      "" -> element
-      val -> Map.put(element, key, parse_number(val))
+      nil -> map
+      val -> Map.put(map, key, val)
     end
   end
 
-  defp parse_number(val) when is_binary(val) do
+  defp maybe_update_named(map, params, prefix, suffix, key) do
+    case Map.get(params, "#{prefix}#{key}#{suffix}") do
+      nil -> map
+      val -> Map.put(map, key, val)
+    end
+  end
+
+  defp maybe_update_named_int(map, params, prefix, suffix, key) do
+    case Map.get(params, "#{prefix}#{key}#{suffix}") do
+      nil -> map
+      "" -> map
+      val when is_binary(val) -> Map.put(map, key, parse_int(val))
+      val -> Map.put(map, key, val)
+    end
+  end
+
+  defp maybe_update_number(map, params, key) do
+    case Map.get(params, key) do
+      nil -> map
+      "" -> map
+      val when is_binary(val) -> Map.put(map, key, parse_number(val))
+      val -> Map.put(map, key, val)
+    end
+  end
+
+  defp parse_number(val) do
+    case Float.parse(val) do
+      {num, ""} -> num
+      _ -> val
+    end
+  end
+
+  defp parse_int(val) do
     case Integer.parse(val) do
-      {int, ""} ->
-        int
-
-      _ ->
-        case Float.parse(val) do
-          {float, ""} -> float
-          _ -> val
-        end
+      {num, ""} -> num
+      _ -> val
     end
   end
 
-  defp parse_number(val), do: val
+  defp zone_type(zone) do
+    case Map.get(zone, "content", []) do
+      [%{"type" => type} | _] when type in ["qr", "barcode"] -> :code
+      _ -> :text
+    end
+  end
 
   @item_field_options [
     {"Name", "name"},
@@ -183,6 +406,10 @@ defmodule StowlyWeb.LabelLive.FormComponent do
   def render(assigns) do
     target_type = Ecto.Changeset.get_field(assigns.changeset, :target_type) || "item"
     assigns = assign(assigns, :field_options, field_options_for(target_type))
+    assigns = assign(assigns, :presets, @presets)
+    layout = assigns.layout
+    zones = Map.get(layout, "zones", [])
+    assigns = assign(assigns, :zones, zones)
 
     ~H"""
     <div>
@@ -203,158 +430,298 @@ defmodule StowlyWeb.LabelLive.FormComponent do
 
         <.input field={@form[:is_default]} type="checkbox" label="Default template" />
 
-        <div class="divider">Label Elements</div>
+        <div class="divider">Layout</div>
 
+        <%!-- Preset selector --%>
+        <div class="mb-4">
+          <label class="label"><span class="label-text text-xs font-medium">Preset</span></label>
+          <div class="flex flex-wrap gap-2">
+            <button
+              :for={{label, value} <- @presets}
+              type="button"
+              class="btn btn-outline btn-xs"
+              phx-click="select_preset"
+              phx-value-preset={value}
+              phx-target={@myself}
+            >
+              {label}
+            </button>
+          </div>
+        </div>
+
+        <%!-- Direction and spacing --%>
+        <div class="grid grid-cols-3 gap-3 mb-4">
+          <div>
+            <label class="label"><span class="label-text text-xs">Direction</span></label>
+            <select
+              class="select select-bordered select-sm w-full"
+              phx-change="update_layout"
+              name="direction"
+              phx-target={@myself}
+            >
+              <option value="horizontal" selected={@layout["direction"] == "horizontal"}>Horizontal</option>
+              <option value="vertical" selected={@layout["direction"] == "vertical"}>Vertical</option>
+            </select>
+          </div>
+          <div>
+            <label class="label"><span class="label-text text-xs">Padding (mm)</span></label>
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              value={@layout["padding"]}
+              class="input input-bordered input-sm w-full"
+              phx-change="update_layout"
+              name="padding"
+              phx-target={@myself}
+            />
+          </div>
+          <div>
+            <label class="label"><span class="label-text text-xs">Gap (mm)</span></label>
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              value={@layout["gap"]}
+              class="input input-bordered input-sm w-full"
+              phx-change="update_layout"
+              name="gap"
+              phx-target={@myself}
+            />
+          </div>
+        </div>
+
+        <%!-- Zones --%>
         <div class="space-y-3">
           <div
-            :for={{element, index} <- Enum.with_index(@elements)}
+            :for={{zone, zone_idx} <- Enum.with_index(@zones)}
             class="card bg-base-200 card-compact"
           >
             <div class="card-body">
               <div class="flex justify-between items-center">
-                <span class="badge badge-sm">{element["type"]}</span>
+                <span class="badge badge-sm badge-primary">Zone {zone_idx + 1}</span>
                 <button
+                  :if={length(@zones) > 1}
                   type="button"
                   class="btn btn-ghost btn-xs text-error"
-                  phx-click="remove_element"
-                  phx-value-index={index}
+                  phx-click="remove_zone"
+                  phx-value-zone={zone_idx}
                   phx-target={@myself}
                 >
                   <.icon name="hero-x-mark" class="h-3 w-3" />
                 </button>
               </div>
 
-              <div :if={element["type"] == "text"} class="mt-2">
-                <label class="label"><span class="label-text text-xs">Text</span></label>
-                <input
-                  type="text"
-                  value={element["text"]}
-                  class="input input-bordered input-sm w-full"
-                  phx-blur="update_element"
-                  phx-value-index={index}
-                  phx-value-text={element["text"]}
-                  name={"element_text_#{index}"}
-                  phx-target={@myself}
-                />
-              </div>
-
-              <div :if={element["type"] in ["field", "barcode", "qr"]} class="mt-2">
-                <label class="label"><span class="label-text text-xs">Field</span></label>
-                <select
-                  class="select select-bordered select-sm w-full"
-                  phx-change="update_element"
-                  phx-value-index={index}
-                  name={"element_field_#{index}"}
-                  phx-target={@myself}
-                >
-                  <option
-                    :for={{label, value} <- @field_options}
-                    value={value}
-                    selected={element["field"] == value}
-                  >
-                    {label}
-                  </option>
-                </select>
-              </div>
-
-              <div class="grid grid-cols-2 gap-2 mt-2">
+              <%!-- Zone settings --%>
+              <div class="grid grid-cols-3 gap-2 mt-2">
                 <div>
-                  <label class="label"><span class="label-text text-xs">X (mm)</span></label>
+                  <label class="label"><span class="label-text text-xs">Size %</span></label>
                   <input
                     type="number"
-                    value={element["x"]}
+                    min="10"
+                    max="100"
+                    value={zone["size"]}
                     class="input input-bordered input-sm w-full"
-                    phx-blur="update_element"
-                    phx-value-index={index}
-                    name={"element_x_#{index}"}
+                    phx-change="update_zone"
+                    phx-value-zone={zone_idx}
+                    name={"zone_size_#{zone_idx}"}
                     phx-target={@myself}
                   />
                 </div>
                 <div>
-                  <label class="label"><span class="label-text text-xs">Y (mm)</span></label>
-                  <input
-                    type="number"
-                    value={element["y"]}
-                    class="input input-bordered input-sm w-full"
-                    phx-blur="update_element"
-                    phx-value-index={index}
-                    name={"element_y_#{index}"}
-                    phx-target={@myself}
-                  />
-                </div>
-              </div>
-
-              <div :if={element["type"] in ["text", "field"]} class="grid grid-cols-2 gap-2 mt-1">
-                <div>
-                  <label class="label"><span class="label-text text-xs">Font Size</span></label>
-                  <input
-                    type="number"
-                    value={element["font_size"]}
-                    class="input input-bordered input-sm w-full"
-                    phx-blur="update_element"
-                    phx-value-index={index}
-                    name={"element_font_size_#{index}"}
-                    phx-target={@myself}
-                  />
-                </div>
-                <div>
-                  <label class="label"><span class="label-text text-xs">Weight</span></label>
+                  <label class="label"><span class="label-text text-xs">Align</span></label>
                   <select
                     class="select select-bordered select-sm w-full"
-                    phx-change="update_element"
-                    phx-value-index={index}
-                    name={"element_font_weight_#{index}"}
+                    phx-change="update_zone"
+                    phx-value-zone={zone_idx}
+                    name={"zone_align_#{zone_idx}"}
                     phx-target={@myself}
                   >
-                    <option value="normal" selected={element["font_weight"] == "normal"}>Normal</option>
-                    <option value="bold" selected={element["font_weight"] == "bold"}>Bold</option>
+                    <option value="left" selected={zone["align"] == "left"}>Left</option>
+                    <option value="center" selected={zone["align"] == "center"}>Center</option>
+                    <option value="right" selected={zone["align"] == "right"}>Right</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label"><span class="label-text text-xs">V-Align</span></label>
+                  <select
+                    class="select select-bordered select-sm w-full"
+                    phx-change="update_zone"
+                    phx-value-zone={zone_idx}
+                    name={"zone_valign_#{zone_idx}"}
+                    phx-target={@myself}
+                  >
+                    <option value="top" selected={zone["valign"] == "top"}>Top</option>
+                    <option value="middle" selected={zone["valign"] == "middle"}>Middle</option>
+                    <option value="bottom" selected={zone["valign"] == "bottom"}>Bottom</option>
                   </select>
                 </div>
               </div>
 
-              <div :if={element["type"] in ["barcode", "qr"]} class="grid grid-cols-2 gap-2 mt-1">
-                <div>
-                  <label class="label"><span class="label-text text-xs">Width</span></label>
-                  <input
-                    type="number"
-                    value={element["width"]}
-                    class="input input-bordered input-sm w-full"
-                    phx-blur="update_element"
-                    phx-value-index={index}
-                    name={"element_width_#{index}"}
+              <%!-- Zone content --%>
+              <div :if={zone_type(zone) == :code} class="mt-2">
+                <div class="flex items-center gap-2">
+                  <label class="label"><span class="label-text text-xs">Code Type</span></label>
+                  <select
+                    class="select select-bordered select-sm"
+                    phx-change="set_zone_code_type"
+                    phx-value-zone={zone_idx}
+                    name={"zone_code_type_#{zone_idx}"}
                     phx-target={@myself}
-                  />
+                  >
+                    <option value="qr" selected={hd(zone["content"])["type"] == "qr"}>QR Code</option>
+                    <option value="barcode" selected={hd(zone["content"])["type"] == "barcode"}>Barcode</option>
+                  </select>
                 </div>
-                <div>
-                  <label class="label"><span class="label-text text-xs">Height</span></label>
-                  <input
-                    type="number"
-                    value={element["height"]}
-                    class="input input-bordered input-sm w-full"
-                    phx-blur="update_element"
-                    phx-value-index={index}
-                    name={"element_height_#{index}"}
+              </div>
+
+              <div :if={zone_type(zone) == :text} class="mt-2 space-y-2">
+                <div
+                  :for={{item, item_idx} <- Enum.with_index(zone["content"] || [])}
+                  class="flex items-center gap-1 bg-base-100 rounded px-2 py-1"
+                >
+                  <%!-- Field select or text input --%>
+                  <div :if={item["type"] == "field"} class="flex-1">
+                    <select
+                      class="select select-bordered select-xs w-full"
+                      phx-change="update_content"
+                      phx-value-zone={zone_idx}
+                      phx-value-item={item_idx}
+                      name={"content_field_#{zone_idx}_#{item_idx}"}
+                      phx-target={@myself}
+                    >
+                      <option
+                        :for={{label, value} <- @field_options}
+                        value={value}
+                        selected={item["field"] == value}
+                      >
+                        {label}
+                      </option>
+                    </select>
+                  </div>
+                  <div :if={item["type"] == "text"} class="flex-1">
+                    <input
+                      type="text"
+                      value={item["text"]}
+                      class="input input-bordered input-xs w-full"
+                      phx-blur="update_content"
+                      phx-value-zone={zone_idx}
+                      phx-value-item={item_idx}
+                      name={"content_text_#{zone_idx}_#{item_idx}"}
+                      phx-target={@myself}
+                    />
+                  </div>
+
+                  <%!-- Font size buttons --%>
+                  <div class="btn-group">
+                    <button
+                      :for={size <- ["small", "medium", "large"]}
+                      type="button"
+                      class={"btn btn-xs #{if item["font_size"] == size, do: "btn-active", else: "btn-ghost"}"}
+                      phx-click="update_content"
+                      phx-value-zone={zone_idx}
+                      phx-value-item={item_idx}
+                      phx-value-font_size={size}
+                      phx-target={@myself}
+                    >
+                      {String.first(size) |> String.upcase()}
+                    </button>
+                  </div>
+
+                  <%!-- Bold toggle --%>
+                  <button
+                    type="button"
+                    class={"btn btn-xs #{if item["font_weight"] == "bold", do: "btn-active", else: "btn-ghost"}"}
+                    phx-click="update_content"
+                    phx-value-zone={zone_idx}
+                    phx-value-item={item_idx}
+                    phx-value-font_weight={if item["font_weight"] == "bold", do: "normal", else: "bold"}
                     phx-target={@myself}
-                  />
+                  >
+                    B
+                  </button>
+
+                  <%!-- Move up/down --%>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-xs"
+                    phx-click="move_content"
+                    phx-value-zone={zone_idx}
+                    phx-value-item={item_idx}
+                    phx-value-dir="up"
+                    phx-target={@myself}
+                    disabled={item_idx == 0}
+                  >
+                    <.icon name="hero-chevron-up" class="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-xs"
+                    phx-click="move_content"
+                    phx-value-zone={zone_idx}
+                    phx-value-item={item_idx}
+                    phx-value-dir="down"
+                    phx-target={@myself}
+                    disabled={item_idx == length(zone["content"] || []) - 1}
+                  >
+                    <.icon name="hero-chevron-down" class="h-3 w-3" />
+                  </button>
+
+                  <%!-- Remove --%>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-xs text-error"
+                    phx-click="remove_content"
+                    phx-value-zone={zone_idx}
+                    phx-value-item={item_idx}
+                    phx-target={@myself}
+                  >
+                    <.icon name="hero-x-mark" class="h-3 w-3" />
+                  </button>
+                </div>
+
+                <div class="flex gap-1">
+                  <button
+                    type="button"
+                    class="btn btn-outline btn-xs"
+                    phx-click="add_content"
+                    phx-value-zone={zone_idx}
+                    phx-value-type="field"
+                    phx-target={@myself}
+                  >
+                    + Field
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline btn-xs"
+                    phx-click="add_content"
+                    phx-value-zone={zone_idx}
+                    phx-value-type="text"
+                    phx-target={@myself}
+                  >
+                    + Text
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="flex gap-2 mt-2">
-          <button type="button" class="btn btn-outline btn-xs" phx-click="add_element" phx-value-type="field" phx-target={@myself}>
-            + Field
+        <div :if={length(@zones) < 3} class="mt-2">
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            phx-click="add_zone"
+            phx-target={@myself}
+          >
+            + Add Zone
           </button>
-          <button type="button" class="btn btn-outline btn-xs" phx-click="add_element" phx-value-type="text" phx-target={@myself}>
-            + Text
-          </button>
-          <button type="button" class="btn btn-outline btn-xs" phx-click="add_element" phx-value-type="barcode" phx-target={@myself}>
-            + Barcode
-          </button>
-          <button type="button" class="btn btn-outline btn-xs" phx-click="add_element" phx-value-type="qr" phx-target={@myself}>
-            + QR Code
-          </button>
+        </div>
+
+        <%!-- Live preview --%>
+        <div class="divider">Preview</div>
+        <div class="flex justify-center p-4 bg-base-200 rounded-lg">
+          {Phoenix.HTML.raw(@preview_svg)}
         </div>
 
         <:actions>
