@@ -32,10 +32,10 @@ defmodule Stowly.Inventory.Category do
   end
 
   defp maybe_generate_slug(changeset) do
-    case get_field(changeset, :slug) do
-      nil -> put_change(changeset, :slug, slugify(get_field(changeset, :name)))
-      "" -> put_change(changeset, :slug, slugify(get_field(changeset, :name)))
-      _existing -> changeset
+    if get_change(changeset, :name) || get_field(changeset, :slug) in [nil, ""] do
+      put_change(changeset, :slug, slugify(get_field(changeset, :name)))
+    else
+      changeset
     end
   end
 
