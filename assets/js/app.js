@@ -16,8 +16,22 @@ let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: Hooks
+  hooks: Hooks,
+  dom: {
+    onBeforeElUpdated(from, to) {
+      if (from._x_dataStack) { window.Alpine.clone(from, to) }
+    }
+  }
 })
+
+// Handle data-confirm on phx-click elements
+document.addEventListener("click", (e) => {
+  let el = e.target.closest("[data-confirm]")
+  if (el && !confirm(el.dataset.confirm)) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+}, true)
 
 // Show progress bar on live navigation and form submits
 topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
