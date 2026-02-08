@@ -45,6 +45,8 @@ defmodule StowlyWeb.ItemLive.FormComponent do
               {loc.name} ({loc.location_type})
             </option>
           </.input>
+
+          <.input field={@form[:code]} type="text" label="Code (barcode / QR)" />
         </div>
 
         <%!-- Tags --%>
@@ -231,15 +233,6 @@ defmodule StowlyWeb.ItemLive.FormComponent do
           </div>
         </div>
 
-        <%!-- Identification - collapsible --%>
-        <div class="collapse collapse-arrow bg-base-200 mt-4">
-          <input type="checkbox" checked={@show_identification} phx-click="toggle_identification" phx-target={@myself} />
-          <div class="collapse-title font-medium">Identification</div>
-          <div class="collapse-content space-y-2">
-            <.input field={@form[:code]} type="text" label="Code (barcode / QR)" />
-          </div>
-        </div>
-
         <:actions>
           <.button type="submit" class="btn-primary" phx-disable-with="Saving...">
             Save Item
@@ -309,7 +302,6 @@ defmodule StowlyWeb.ItemLive.FormComponent do
        media: media,
        show_prices: prices != [],
        show_custom_fields: custom_field_values != %{},
-       show_identification: item.code != nil,
        show_photos: media != []
      )
      |> allow_upload(:photos,
@@ -354,10 +346,6 @@ defmodule StowlyWeb.ItemLive.FormComponent do
 
   def handle_event("toggle_custom_fields", _params, socket) do
     {:noreply, assign(socket, show_custom_fields: !socket.assigns.show_custom_fields)}
-  end
-
-  def handle_event("toggle_identification", _params, socket) do
-    {:noreply, assign(socket, show_identification: !socket.assigns.show_identification)}
   end
 
   def handle_event("toggle_photos", _params, socket) do
