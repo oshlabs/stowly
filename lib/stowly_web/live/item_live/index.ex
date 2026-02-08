@@ -15,9 +15,11 @@ defmodule StowlyWeb.ItemLive.Index do
        page_title: "#{collection.name} - Items",
        categories: Inventory.list_categories(collection),
        tags: Inventory.list_tags(collection),
+       storage_locations: Inventory.list_storage_locations(collection),
        filter_category: nil,
        filter_tag_ids: :all,
-       filter_status: nil
+       filter_status: nil,
+       filter_location: nil
      )
      |> load_items()}
   end
@@ -50,7 +52,8 @@ defmodule StowlyWeb.ItemLive.Index do
      socket
      |> assign(
        filter_category: blank_to_nil(params["category_id"]),
-       filter_status: blank_to_nil(params["status"])
+       filter_status: blank_to_nil(params["status"]),
+       filter_location: blank_to_nil(params["storage_location_id"])
      )
      |> load_items()}
   end
@@ -123,6 +126,7 @@ defmodule StowlyWeb.ItemLive.Index do
       []
       |> maybe_add(:category_id, socket.assigns.filter_category)
       |> maybe_add(:status, socket.assigns.filter_status)
+      |> maybe_add(:storage_location_id, socket.assigns.filter_location)
 
     opts =
       case socket.assigns.filter_tag_ids do
@@ -176,6 +180,17 @@ defmodule StowlyWeb.ItemLive.Index do
             selected={@filter_category == to_string(cat.id)}
           >
             {cat.name}
+          </option>
+        </select>
+
+        <select name="storage_location_id" class="select select-bordered select-sm">
+          <option value="">All Locations</option>
+          <option
+            :for={loc <- @storage_locations}
+            value={loc.id}
+            selected={@filter_location == to_string(loc.id)}
+          >
+            {loc.name}
           </option>
         </select>
       </form>

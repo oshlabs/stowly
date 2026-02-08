@@ -168,6 +168,12 @@ defmodule Stowly.Inventory do
       end
 
     query =
+      case Keyword.get(opts, :storage_location_id) do
+        nil -> query
+        id -> where(query, storage_location_id: ^id)
+      end
+
+    query =
       case Keyword.get(opts, :tag_filter) do
         nil ->
           query
