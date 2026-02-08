@@ -126,13 +126,8 @@ defmodule StowlyWeb.ItemLive.Index do
           </option>
         </select>
 
-        <% selected_tag = Enum.find(@tags, &(to_string(&1.id) == @filter_tag)) %>
-        <select
-          name="tag_id"
-          class="select select-bordered select-sm"
-          style={selected_tag && selected_tag.color && "color: #{selected_tag.color}; font-weight: 500"}
-        >
-          <option value="" style="color: inherit; font-weight: normal">All Tags</option>
+        <select name="tag_id" class="select select-bordered select-sm">
+          <option value="">All Tags</option>
           <option
             :for={tag <- @tags}
             value={tag.id}
