@@ -28,32 +28,24 @@ defmodule StowlyWeb.LabelLive.FormComponent do
   end
 
   @impl true
-  def handle_event("validate", %{"label_template" => params}, socket) do
+  def handle_event("validate", %{"label_template" => template_params} = params, socket) do
     changeset =
       socket.assigns.template
-      |> Labels.change_label_template(params)
+      |> Labels.change_label_template(template_params)
       |> Map.put(:action, :validate)
+
+    target = params |> Map.get("_target", []) |> List.first()
+    layout = apply_form_layout_change(socket.assigns.layout, target, params)
 
     {:noreply,
      socket
      |> assign(changeset: changeset, form: to_form(changeset))
+     |> assign(:layout, layout)
      |> update_preview()}
   end
 
   def handle_event("select_preset", %{"preset" => preset}, socket) do
     layout = Labels.preset_layout(preset)
-    {:noreply, socket |> assign(:layout, layout) |> update_preview()}
-  end
-
-  def handle_event("update_layout", params, socket) do
-    layout = socket.assigns.layout
-
-    layout =
-      layout
-      |> maybe_update(params, "direction")
-      |> maybe_update_number(params, "padding")
-      |> maybe_update_number(params, "gap")
-
     {:noreply, socket |> assign(:layout, layout) |> update_preview()}
   end
 
@@ -92,55 +84,6 @@ defmodule StowlyWeb.LabelLive.FormComponent do
     zones = rebalance_zones(zones)
     layout = Map.put(layout, "zones", zones)
     {:noreply, socket |> assign(:layout, layout) |> update_preview()}
-  end
-
-  def handle_event("update_zone", %{"zone" => zone_idx} = params, socket) do
-    zone_idx = String.to_integer(zone_idx)
-    layout = socket.assigns.layout
-    zones = Map.get(layout, "zones", [])
-    zone = Enum.at(zones, zone_idx)
-
-    if zone do
-      prefix = "zone_"
-      suffix = "_#{zone_idx}"
-
-      zone =
-        zone
-        |> maybe_update_named(params, prefix, suffix, "align")
-        |> maybe_update_named(params, prefix, suffix, "valign")
-        |> maybe_update_named_int(params, prefix, suffix, "size")
-
-      zones = List.replace_at(zones, zone_idx, zone)
-      layout = Map.put(layout, "zones", zones)
-      {:noreply, socket |> assign(:layout, layout) |> update_preview()}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("set_zone_code_type", %{"zone" => zone_idx} = params, socket) do
-    code_type = Map.get(params, "code_type") || Map.get(params, "zone_code_type_#{zone_idx}")
-    zone_idx = String.to_integer(zone_idx)
-    layout = socket.assigns.layout
-    zones = Map.get(layout, "zones", [])
-    zone = Enum.at(zones, zone_idx)
-
-    if zone do
-      content = Map.get(zone, "content", [])
-
-      content =
-        case content do
-          [item | _] -> [Map.put(item, "type", code_type)]
-          _ -> [%{"type" => code_type, "field" => "code"}]
-        end
-
-      zone = Map.put(zone, "content", content)
-      zones = List.replace_at(zones, zone_idx, zone)
-      layout = Map.put(layout, "zones", zones)
-      {:noreply, socket |> assign(:layout, layout) |> update_preview()}
-    else
-      {:noreply, socket}
-    end
   end
 
   def handle_event("add_content", %{"zone" => zone_idx, "type" => type}, socket) do
@@ -313,6 +256,83 @@ defmodule StowlyWeb.LabelLive.FormComponent do
     assign(socket, :preview_svg, Labels.render_label_preview(preview_template))
   end
 
+  # Process layout changes from form change events based on _target
+
+  defp apply_form_layout_change(layout, "direction", params),
+    do: Map.put(layout, "direction", params["direction"])
+
+  defp apply_form_layout_change(layout, "padding", params),
+    do: Map.put(layout, "padding", parse_number(params["padding"] || "1.5"))
+
+  defp apply_form_layout_change(layout, "gap", params),
+    do: Map.put(layout, "gap", parse_number(params["gap"] || "1.0"))
+
+  defp apply_form_layout_change(layout, target, params) when is_binary(target) do
+    zones = Map.get(layout, "zones", [])
+
+    cond do
+      match = Regex.run(~r/^zone_code_type_(\d+)$/, target) ->
+        [_, idx_str] = match
+        idx = String.to_integer(idx_str)
+
+        update_zone_in_layout(layout, zones, idx, fn zone ->
+          code_type = params[target]
+          content = Map.get(zone, "content", [])
+
+          content =
+            case content do
+              [item | _] -> [Map.put(item, "type", code_type)]
+              _ -> [%{"type" => code_type, "field" => "code"}]
+            end
+
+          Map.put(zone, "content", content)
+        end)
+
+      match = Regex.run(~r/^zone_(size|align|valign)_(\d+)$/, target) ->
+        [_, field, idx_str] = match
+        idx = String.to_integer(idx_str)
+
+        update_zone_in_layout(layout, zones, idx, fn zone ->
+          value = params[target]
+          value = if field == "size", do: parse_int(value), else: value
+          Map.put(zone, field, value)
+        end)
+
+      match = Regex.run(~r/^content_(field|text)_(\d+)_(\d+)$/, target) ->
+        [_, field, z_str, i_str] = match
+        z_idx = String.to_integer(z_str)
+        i_idx = String.to_integer(i_str)
+
+        update_content_in_layout(layout, zones, z_idx, i_idx, fn item ->
+          Map.put(item, field, params[target])
+        end)
+
+      true ->
+        layout
+    end
+  end
+
+  defp apply_form_layout_change(layout, _, _), do: layout
+
+  defp update_zone_in_layout(layout, zones, idx, update_fn) do
+    case Enum.at(zones, idx) do
+      nil -> layout
+      zone -> Map.put(layout, "zones", List.replace_at(zones, idx, update_fn.(zone)))
+    end
+  end
+
+  defp update_content_in_layout(layout, zones, zone_idx, item_idx, update_fn) do
+    with zone when not is_nil(zone) <- Enum.at(zones, zone_idx),
+         content = Map.get(zone, "content", []),
+         item when not is_nil(item) <- Enum.at(content, item_idx) do
+      content = List.replace_at(content, item_idx, update_fn.(item))
+      zone = Map.put(zone, "content", content)
+      Map.put(layout, "zones", List.replace_at(zones, zone_idx, zone))
+    else
+      _ -> layout
+    end
+  end
+
   defp rebalance_zones([]), do: []
 
   defp rebalance_zones(zones) do
@@ -341,37 +361,23 @@ defmodule StowlyWeb.LabelLive.FormComponent do
     end
   end
 
-  defp maybe_update_named_int(map, params, prefix, suffix, key) do
-    case Map.get(params, "#{prefix}#{key}#{suffix}") do
-      nil -> map
-      "" -> map
-      val when is_binary(val) -> Map.put(map, key, parse_int(val))
-      val -> Map.put(map, key, val)
-    end
-  end
-
-  defp maybe_update_number(map, params, key) do
-    case Map.get(params, key) do
-      nil -> map
-      "" -> map
-      val when is_binary(val) -> Map.put(map, key, parse_number(val))
-      val -> Map.put(map, key, val)
-    end
-  end
-
-  defp parse_number(val) do
+  defp parse_number(val) when is_binary(val) do
     case Float.parse(val) do
       {num, ""} -> num
       _ -> val
     end
   end
 
-  defp parse_int(val) do
+  defp parse_number(val), do: val
+
+  defp parse_int(val) when is_binary(val) do
     case Integer.parse(val) do
       {num, ""} -> num
       _ -> val
     end
   end
+
+  defp parse_int(val), do: val
 
   defp zone_type(zone) do
     case Map.get(zone, "content", []) do
@@ -455,7 +461,6 @@ defmodule StowlyWeb.LabelLive.FormComponent do
             <label class="label"><span class="label-text text-xs">Direction</span></label>
             <select
               class="select select-bordered select-sm w-full"
-              phx-change="update_layout"
               name="direction"
               phx-target={@myself}
             >
@@ -471,7 +476,6 @@ defmodule StowlyWeb.LabelLive.FormComponent do
               min="0"
               value={@layout["padding"]}
               class="input input-bordered input-sm w-full"
-              phx-change="update_layout"
               name="padding"
               phx-target={@myself}
             />
@@ -484,7 +488,6 @@ defmodule StowlyWeb.LabelLive.FormComponent do
               min="0"
               value={@layout["gap"]}
               class="input input-bordered input-sm w-full"
-              phx-change="update_layout"
               name="gap"
               phx-target={@myself}
             />
@@ -522,20 +525,14 @@ defmodule StowlyWeb.LabelLive.FormComponent do
                     max="100"
                     value={zone["size"]}
                     class="input input-bordered input-sm w-full"
-                    phx-change="update_zone"
-                    phx-value-zone={zone_idx}
                     name={"zone_size_#{zone_idx}"}
-                    phx-target={@myself}
                   />
                 </div>
                 <div>
                   <label class="label"><span class="label-text text-xs">Align</span></label>
                   <select
                     class="select select-bordered select-sm w-full"
-                    phx-change="update_zone"
-                    phx-value-zone={zone_idx}
                     name={"zone_align_#{zone_idx}"}
-                    phx-target={@myself}
                   >
                     <option value="left" selected={zone["align"] == "left"}>Left</option>
                     <option value="center" selected={zone["align"] == "center"}>Center</option>
@@ -546,10 +543,7 @@ defmodule StowlyWeb.LabelLive.FormComponent do
                   <label class="label"><span class="label-text text-xs">V-Align</span></label>
                   <select
                     class="select select-bordered select-sm w-full"
-                    phx-change="update_zone"
-                    phx-value-zone={zone_idx}
                     name={"zone_valign_#{zone_idx}"}
-                    phx-target={@myself}
                   >
                     <option value="top" selected={zone["valign"] == "top"}>Top</option>
                     <option value="middle" selected={zone["valign"] == "middle"}>Middle</option>
@@ -564,10 +558,7 @@ defmodule StowlyWeb.LabelLive.FormComponent do
                   <label class="label"><span class="label-text text-xs">Code Type</span></label>
                   <select
                     class="select select-bordered select-sm"
-                    phx-change="set_zone_code_type"
-                    phx-value-zone={zone_idx}
                     name={"zone_code_type_#{zone_idx}"}
-                    phx-target={@myself}
                   >
                     <option value="qr" selected={hd(zone["content"])["type"] == "qr"}>QR Code</option>
                     <option value="barcode" selected={hd(zone["content"])["type"] == "barcode"}>Barcode</option>
@@ -584,11 +575,7 @@ defmodule StowlyWeb.LabelLive.FormComponent do
                   <div :if={item["type"] == "field"} class="flex-1">
                     <select
                       class="select select-bordered select-xs w-full"
-                      phx-change="update_content"
-                      phx-value-zone={zone_idx}
-                      phx-value-item={item_idx}
                       name={"content_field_#{zone_idx}_#{item_idx}"}
-                      phx-target={@myself}
                     >
                       <option
                         :for={{label, value} <- @field_options}
