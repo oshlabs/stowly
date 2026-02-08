@@ -173,6 +173,8 @@ defmodule Stowly.Inventory do
           query
 
         tag_id ->
+          tag_id = if is_binary(tag_id), do: String.to_integer(tag_id), else: tag_id
+
           from(i in query,
             join: it in "item_tags",
             on: it.item_id == i.id,
