@@ -11,9 +11,9 @@ defmodule StowlyWeb.Endpoint do
     same_site: "Lax"
   ]
 
-  # socket "/live", Phoenix.LiveView.Socket,
-  #   websocket: [connect_info: [session: @session_options]],
-  #   longpoll: [connect_info: [session: @session_options]]
+  socket "/live", Phoenix.LiveView.Socket,
+    websocket: [connect_info: [session: @session_options]],
+    longpoll: [connect_info: [session: @session_options]]
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -26,6 +26,12 @@ defmodule StowlyWeb.Endpoint do
     gzip: not code_reloading?,
     only: StowlyWeb.static_paths(),
     raise_on_missing_only: code_reloading?
+
+  # Serve uploaded files
+  plug Plug.Static,
+    at: "/uploads",
+    from: {:stowly, "uploads"},
+    gzip: false
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.

@@ -1,0 +1,49 @@
+defmodule Stowly.Inventory.Category do
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  schema "categories" do
+    field :name, :string
+    field :slug, :string
+    field :description, :string
+    field :color, :string
+    field :position, :integer, default: 0
+
+    belongs_to :collection, Stowly.Inventory.Collection
+    belongs_to :parent, Stowly.Inventory.Category
+    has_many :children, Stowly.Inventory.Category, foreign_key: :parent_id
+
+    timestamps(type: :utc_datetime)
+  end
+
+  def changeset(category, attrs) do
+    category
+    |> cast(attrs, [:name, :description, :color, :position, :parent_id])
+    |> validate_required([:name])
+    |> maybe_generate_slug()
+    |> validate_format(:slug, ~r/^[a-z0-9-]+$/,
+      message: "must be lowercase alphanumeric with dashes"
+    )
+    |> unique_constraint([:collection_id, :slug])
+    |> foreign_key_constraint(:parent_id)
+  end
+
+  defp maybe_generate_slug(changeset) do
+    case get_field(changeset, :slug) do
+      nil -> put_change(changeset, :slug, slugify(get_field(changeset, :name)))
+      "" -> put_change(changeset, :slug, slugify(get_field(changeset, :name)))
+      _existing -> changeset
+    end
+  end
+
+  defp slugify(nil), do: ""
+
+  defp slugify(string) do
+    string
+    |> String.downcase()
+    |> String.replace(~r/[^\w\s-]/, "")
+    |> String.replace(~r/[\s_]+/, "-")
+    |> String.replace(~r/-+/, "-")
+    |> String.trim("-")
+  end
+end

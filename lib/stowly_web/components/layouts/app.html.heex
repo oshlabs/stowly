@@ -1,0 +1,21 @@
+<div class="navbar bg-base-200 shadow-sm">
+  <div class="flex-1">
+    <a href={~p"/"} class="btn btn-ghost text-xl">Stowly</a>
+  </div>
+  <div class="flex-none gap-2">
+    <.link navigate={~p"/search"} class="btn btn-ghost btn-sm">
+      <.icon name="hero-magnifying-glass" class="h-4 w-4" /> Search
+    </.link>
+    <.link navigate={~p"/collections"} class="btn btn-ghost btn-sm">
+      <.icon name="hero-archive-box" class="h-4 w-4" /> Collections
+    </.link>
+    <.link navigate={~p"/settings"} class="btn btn-ghost btn-sm">
+      <.icon name="hero-cog-6-tooth" class="h-4 w-4" />
+    </.link>
+  </div>
+</div>
+
+<main class="container mx-auto px-4 py-8 max-w-7xl">
+  <.flash_group flash={@flash} />
+  {@inner_content}
+</main>

@@ -16,7 +16,7 @@ config :stowly, StowlyWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [json: StowlyWeb.ErrorJSON],
+    formats: [html: StowlyWeb.ErrorHTML, json: StowlyWeb.ErrorJSON],
     layout: false
   ],
   pubsub_server: Stowly.PubSub,
