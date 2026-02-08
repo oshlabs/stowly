@@ -331,7 +331,7 @@ defmodule Stowly.Inventory do
     StorageLocation
     |> where([l], l.collection_id == ^collection.id and is_nil(l.parent_id))
     |> order_by(asc: :position, asc: :name)
-    |> preload(children: :children)
+    |> preload([:items, children: [:items, children: [:items, children: :items]]])
     |> Repo.all()
   end
 

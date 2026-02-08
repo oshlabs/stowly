@@ -48,6 +48,17 @@ defmodule StowlyWeb.LocationLive.Index do
     {:noreply, refresh_locations(socket)}
   end
 
+  @impl true
+  def handle_event("delete", %{"id" => id}, socket) do
+    location = Inventory.get_storage_location!(id)
+    {:ok, _} = Inventory.delete_storage_location(location)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Location deleted")
+     |> refresh_locations()}
+  end
+
   defp refresh_locations(socket) do
     collection = socket.assigns.collection
 
@@ -81,12 +92,26 @@ defmodule StowlyWeb.LocationLive.Index do
       <p class="text-lg">No storage locations yet</p>
     </div>
 
-    <div :if={@locations != []} class="mt-6 space-y-2">
-      <.location_tree
-        locations={@locations}
-        collection={@collection}
-        level={0}
-      />
+    <div :if={@locations != []} class="mt-6 overflow-x-auto">
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Code</th>
+            <th>Items</th>
+            <th>Description</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <.location_rows
+            locations={@locations}
+            collection={@collection}
+            level={0}
+          />
+        </tbody>
+      </table>
     </div>
 
     <.modal
@@ -109,23 +134,54 @@ defmodule StowlyWeb.LocationLive.Index do
     """
   end
 
-  defp location_tree(assigns) do
+  defp location_rows(assigns) do
     ~H"""
-    <div :for={location <- @locations} class={"ml-#{@level * 4}"}>
-      <.link
-        patch={~p"/collections/#{@collection}/locations/#{location}/edit"}
-        class="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-base-200"
+    <%= for location <- @locations do %>
+      <tr
+        class="hover:bg-base-200 cursor-pointer"
+        phx-click={JS.patch(~p"/collections/#{@collection}/locations/#{location}/edit")}
       >
-        <span class="badge badge-ghost badge-sm">{location.location_type}</span>
-        <span class="font-medium">{location.name}</span>
-      </.link>
-      <.location_tree
+        <td>
+          <span style={"padding-left: #{@level * 1.25}rem"} class="font-medium">
+            {location.name}
+          </span>
+        </td>
+        <td><span class="badge badge-ghost badge-sm">{location.location_type}</span></td>
+        <td class="text-sm opacity-70">{location.code}</td>
+        <td>{item_count(location)}</td>
+        <td class="text-sm opacity-70 max-w-xs truncate">{location.description}</td>
+        <td class="text-right">
+          <button
+            type="button"
+            class="btn btn-ghost btn-xs text-error"
+            phx-click="delete"
+            phx-value-id={location.id}
+            data-confirm="Delete this location?"
+          >
+            <.icon name="hero-trash" class="h-3 w-3" />
+          </button>
+        </td>
+      </tr>
+      <.location_rows
         :if={location.children != [] and Ecto.assoc_loaded?(location.children)}
         locations={location.children}
         collection={@collection}
         level={@level + 1}
       />
-    </div>
+    <% end %>
     """
+  end
+
+  defp item_count(location) do
+    direct = if Ecto.assoc_loaded?(location.items), do: length(location.items), else: 0
+
+    children_count =
+      if Ecto.assoc_loaded?(location.children) do
+        Enum.sum(Enum.map(location.children, &item_count/1))
+      else
+        0
+      end
+
+    direct + children_count
   end
 end
