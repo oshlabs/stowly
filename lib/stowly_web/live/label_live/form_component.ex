@@ -288,15 +288,19 @@ defmodule StowlyWeb.LabelLive.FormComponent do
           Map.put(zone, "content", content)
         end)
 
-      match = Regex.run(~r/^zone_(size|align|valign)_(\d+)$/, target) ->
+      match = Regex.run(~r/^zone_(align|valign)_(\d+)$/, target) ->
         [_, field, idx_str] = match
         idx = String.to_integer(idx_str)
 
         update_zone_in_layout(layout, zones, idx, fn zone ->
-          value = params[target]
-          value = if field == "size", do: parse_int(value), else: value
-          Map.put(zone, field, value)
+          Map.put(zone, field, params[target])
         end)
+
+      match = Regex.run(~r/^zone_size_(\d+)$/, target) ->
+        [_, idx_str] = match
+        idx = String.to_integer(idx_str)
+        new_size = parse_int(params[target])
+        redistribute_zone_sizes(layout, zones, idx, new_size)
 
       match = Regex.run(~r/^content_(field|text)_(\d+)_(\d+)$/, target) ->
         [_, field, z_str, i_str] = match
@@ -319,6 +323,39 @@ defmodule StowlyWeb.LabelLive.FormComponent do
       nil -> layout
       zone -> Map.put(layout, "zones", List.replace_at(zones, idx, update_fn.(zone)))
     end
+  end
+
+  defp redistribute_zone_sizes(layout, zones, changed_idx, new_size) do
+    new_size = max(new_size, 5)
+    count = length(zones)
+
+    if count <= 1 do
+      update_zone_in_layout(layout, zones, changed_idx, &Map.put(&1, "size", 100))
+    else
+      new_size = min(new_size, 95)
+      remaining = 100 - new_size
+      other_count = count - 1
+      each_other = div(remaining, other_count)
+      leftover = rem(remaining, other_count)
+
+      zones =
+        zones
+        |> Enum.with_index()
+        |> Enum.map(fn {zone, idx} ->
+          if idx == changed_idx do
+            Map.put(zone, "size", new_size)
+          else
+            extra = if idx == Enum.at(other_indices(count, changed_idx), 0), do: leftover, else: 0
+            Map.put(zone, "size", each_other + extra)
+          end
+        end)
+
+      Map.put(layout, "zones", zones)
+    end
+  end
+
+  defp other_indices(count, skip) do
+    Enum.reject(0..(count - 1), &(&1 == skip))
   end
 
   defp update_content_in_layout(layout, zones, zone_idx, item_idx, update_fn) do
