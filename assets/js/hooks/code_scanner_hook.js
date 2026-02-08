@@ -131,7 +131,7 @@ const CodeScannerHook = {
 
   fillCode(value) {
     const form = this.el.closest("form")
-    const input = form && form.querySelector('input[name="item[code]"]')
+    const input = form && form.querySelector('input[placeholder="Scan or enter code"]')
     if (input) {
       input.value = value
       input.dispatchEvent(new Event("input", { bubbles: true }))

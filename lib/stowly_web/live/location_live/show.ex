@@ -74,7 +74,11 @@ defmodule StowlyWeb.LocationLive.Show do
     <.header>
       <span class="badge badge-ghost mr-2">{@location.location_type}</span>
       {@location.name}
-      <:subtitle>{@location.description}</:subtitle>
+      <:subtitle>
+        {if @location.code, do: @location.code, else: ""}
+        {if @location.code && @location.description, do: " — ", else: ""}
+        {@location.description}
+      </:subtitle>
       <:actions>
         <.link
           patch={~p"/collections/#{@collection}/locations/#{@location}/edit"}
