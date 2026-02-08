@@ -50,7 +50,7 @@ defmodule StowlyWeb.SearchLive do
     <div :if={@results != []} class="mt-6 space-y-2">
       <.link
         :for={item <- @results}
-        navigate={~p"/collections/#{item.collection_id}/items/#{item}"}
+        navigate={~p"/collections/#{item.collection_id}/items/#{item}/edit"}
         class="flex items-center gap-3 p-3 rounded-lg hover:bg-base-200 transition-colors"
       >
         <div class="flex-1">

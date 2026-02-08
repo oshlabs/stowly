@@ -34,28 +34,27 @@ defmodule StowlyWeb.ItemLiveTest do
       assert html =~ "Item created"
       assert html =~ "New Widget"
     end
-  end
 
-  describe "Show" do
-    test "displays item", %{conn: conn, collection: collection} do
-      item = item_fixture(collection, %{name: "My Laptop", description: "A nice laptop"})
-      {:ok, _live, html} = live(conn, ~p"/collections/#{collection}/items/#{item}")
+    test "edits item via modal", %{conn: conn, collection: collection} do
+      item = item_fixture(collection, %{name: "My Laptop"})
+      {:ok, live, _html} = live(conn, ~p"/collections/#{collection}/items/#{item}/edit")
 
-      assert html =~ item.name
-      assert html =~ "A nice laptop"
+      assert render(live) =~ "Edit Item"
     end
 
-    test "deletes item", %{conn: conn, collection: collection} do
-      item = item_fixture(collection)
-      {:ok, live, _html} = live(conn, ~p"/collections/#{collection}/items/#{item}")
+    test "deletes item from list", %{conn: conn, collection: collection} do
+      item_fixture(collection, %{name: "Delete Me"})
+      {:ok, live, _html} = live(conn, ~p"/collections/#{collection}/items")
 
-      {:ok, _live, html} =
-        live
-        |> element("button[phx-click=delete]")
-        |> render_click()
-        |> follow_redirect(conn)
+      assert render(live) =~ "Delete Me"
 
+      live
+      |> element("button[phx-click=delete]")
+      |> render_click()
+
+      html = render(live)
       assert html =~ "Item deleted"
+      refute html =~ "Delete Me"
     end
   end
 end

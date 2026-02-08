@@ -18,3 +18,29 @@ We are in a freshly generated phoenix project called "Stowly". It is to become a
      · What default currency should items use for price tracking? → Allow multiple prices to be set on an item, and with that define the price in a configurable currency for that item and at a specific order    
       quantity at a configurable vendor/store. So you can simply set a single price with currency or with the extra mentioned fields if the user wants.  
 
+Then put on my QA hat and fixed several things:
+
+❯ when i click on "new Collection", nothing happens                                                                                                                                                                
+
+❯ i have now created one collection, but when i now click on "collections" to get the list view, i see an "empty" collection, no name is in it, nothing, and the created electronics collection. If i click on     
+   the empty "slab" i also go to the electronics collection.                                                                                                                                                       
+
+❯ I'm adding storage locations, when i add a location that already exists it doesn't work (which is good), but i don't see any error on my screen (like a flash message or so)
+
+❯ When i delete a storage location that has child storage locations, it deletes it without any warning. Not sure if that also happens if actual collection items are stored in the location ?                      
+
+❯ if i update the parent location of a location, it doesn't get updated
+
+❯ When adding a category or a category in settings, i can choose a color. I now have to type in the color, but could i also have a color picker when i click on it ? then when clicking the color it fills in      
+  the rgb hex value ?
+
+❯ in the color picker can you display a little ok or cancel button, so that after one presses ok, the text field is updated ? if cancel is pressed or one clicks outside of the color picker, the color is         
+  reset to what it was ? let the default textual value be the hex value, but i like that if you click on it that it shows the rgb or hsv value in the color picker. Can you also add a bunch of default colors     
+   , like 9 different base colors or so ?
+
+❯ make it 10 colors instead of 9 
+
+❯ i have added a cateogry "Resistors", then have edited that category and renamed it to "Caps".. If i now add a category by the name of "Resistors", i get the error that the category with that name already      
+  exists    
+
+

@@ -269,15 +269,12 @@ defmodule StowlyWeb.ItemLive.Index do
           </tr>
         </thead>
         <tbody>
-          <tr :for={item <- @items} class="hover">
-            <td>
-              <.link
-                navigate={~p"/collections/#{@collection}/items/#{item}"}
-                class="link link-hover font-medium"
-              >
-                {item.name}
-              </.link>
-            </td>
+          <tr
+            :for={item <- @items}
+            class="hover:bg-base-200 cursor-pointer"
+            phx-click={JS.patch(~p"/collections/#{@collection}/items/#{item}/edit")}
+          >
+            <td class="font-medium">{item.name}</td>
             <td>
               <span :if={item.category}>{item.category.name}</span>
             </td>
@@ -307,13 +304,7 @@ defmodule StowlyWeb.ItemLive.Index do
                 </span>
               </div>
             </td>
-            <td class="flex gap-1 justify-end">
-              <.link
-                patch={~p"/collections/#{@collection}/items/#{item}/edit"}
-                class="btn btn-ghost btn-xs"
-              >
-                <.icon name="hero-pencil-square" class="h-3 w-3" />
-              </.link>
+            <td class="text-right">
               <button
                 class="btn btn-ghost btn-xs text-error"
                 phx-click="delete"

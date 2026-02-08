@@ -131,7 +131,7 @@ defmodule StowlyWeb.LocationLive.Show do
         <div class="space-y-1">
           <.link
             :for={item <- @location.items}
-            navigate={~p"/collections/#{@collection}/items/#{item}"}
+            navigate={~p"/collections/#{@collection}/items/#{item}/edit"}
             class="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-base-200"
           >
             <span class="font-medium">{item.name}</span>
