@@ -123,7 +123,7 @@ defmodule Stowly.Labels do
           w = Map.get(el, "width", 40)
           h = Map.get(el, "height", 10)
 
-          ~s(<foreignObject x="#{x}" y="#{y}" width="#{w}" height="#{h}">#{svg}</foreignObject>)
+          embed_svg(svg, x, y, w, h)
 
         _ ->
           nil
@@ -143,7 +143,7 @@ defmodule Stowly.Labels do
         w = Map.get(el, "width", 15)
         h = Map.get(el, "height", 15)
 
-        ~s(<foreignObject x="#{x}" y="#{y}" width="#{w}" height="#{h}">#{svg}</foreignObject>)
+        embed_svg(svg, x, y, w, h)
       end
     end
   end
@@ -192,6 +192,19 @@ defmodule Stowly.Labels do
   end
 
   defp resolve_location_field(_, _), do: nil
+
+  defp embed_svg(svg, x, y, w, h) do
+    svg =
+      svg
+      |> to_string()
+      |> String.replace(~r/<\?xml[^?]*\?>/, "")
+      |> String.replace(
+        ~r/<svg[^>]*viewBox="([^"]*)"[^>]*>/,
+        ~s(<svg x="#{x}" y="#{y}" width="#{w}" height="#{h}" viewBox="\\1">)
+      )
+
+    svg
+  end
 
   defp escape_svg(text) when is_binary(text) do
     text
