@@ -3,6 +3,7 @@ defmodule StowlyWeb.ItemLive.FormComponent do
 
   alias Stowly.Inventory
   alias Stowly.Inventory.Item
+  alias Stowly.Uploads
 
   @impl true
   def render(assigns) do
@@ -167,6 +168,69 @@ defmodule StowlyWeb.ItemLive.FormComponent do
           </div>
         </div>
 
+        <%!-- Photos - collapsible --%>
+        <div class="collapse collapse-arrow bg-base-200 mt-4">
+          <input type="checkbox" checked={@show_photos} phx-click="toggle_photos" phx-target={@myself} />
+          <div class="collapse-title font-medium">
+            Photos ({length(@media) + length(@uploads.photos.entries)})
+          </div>
+          <div class="collapse-content">
+            <div :if={@media != []} class="grid grid-cols-3 gap-2 mb-3">
+              <div :for={medium <- @media} class="relative group">
+                <img
+                  src={Uploads.url(medium.file_path)}
+                  alt={medium.original_filename}
+                  class="rounded-lg w-full h-24 object-cover"
+                />
+                <button
+                  type="button"
+                  class="absolute top-1 right-1 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                  phx-click="delete_photo"
+                  phx-value-id={medium.id}
+                  phx-target={@myself}
+                  data-confirm="Delete this photo?"
+                >
+                  <.icon name="hero-x-mark" class="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+
+            <div :for={entry <- @uploads.photos.entries} class="flex items-center gap-2 mb-2">
+              <.live_img_preview entry={entry} class="h-12 w-12 rounded object-cover" />
+              <span class="text-sm flex-1 truncate">{entry.client_name}</span>
+              <progress class="progress progress-primary w-20" value={entry.progress} max="100" />
+              <button
+                type="button"
+                class="btn btn-ghost btn-xs"
+                phx-click="cancel_upload"
+                phx-value-ref={entry.ref}
+                phx-target={@myself}
+              >
+                <.icon name="hero-x-mark" class="h-3 w-3" />
+              </button>
+            </div>
+
+            <div :for={err <- upload_errors(@uploads.photos)} class="text-error text-sm mb-1">
+              {error_to_string(err)}
+            </div>
+
+            <div class="flex gap-2">
+              <label class="btn btn-ghost btn-sm">
+                <.icon name="hero-arrow-up-tray" class="h-4 w-4" /> Upload
+                <.live_file_input upload={@uploads.photos} class="hidden" />
+              </label>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm"
+                id="camera-btn"
+                phx-hook="CameraHook"
+              >
+                <.icon name="hero-camera" class="h-4 w-4" /> Camera
+              </button>
+            </div>
+          </div>
+        </div>
+
         <%!-- Identification - collapsible --%>
         <div class="collapse collapse-arrow bg-base-200 mt-4">
           <input type="checkbox" checked={@show_identification} phx-click="toggle_identification" phx-target={@myself} />
@@ -225,6 +289,13 @@ defmodule StowlyWeb.ItemLive.FormComponent do
         []
       end
 
+    media =
+      if item.id && Ecto.assoc_loaded?(item.media) do
+        item.media
+      else
+        []
+      end
+
     {:ok,
      socket
      |> assign(assigns)
@@ -236,9 +307,16 @@ defmodule StowlyWeb.ItemLive.FormComponent do
        selected_tag_ids: selected_tag_ids,
        custom_field_values: custom_field_values,
        prices: prices,
+       media: media,
        show_prices: prices != [],
        show_custom_fields: custom_field_values != %{},
-       show_identification: (item.barcode || item.qr_data) != nil
+       show_identification: (item.barcode || item.qr_data) != nil,
+       show_photos: media != []
+     )
+     |> allow_upload(:photos,
+       accept: ~w(.jpg .jpeg .png .gif .webp),
+       max_entries: 10,
+       max_file_size: 20_000_000
      )
      |> assign_new(:form, fn ->
        to_form(Inventory.change_item(item))
@@ -283,6 +361,21 @@ defmodule StowlyWeb.ItemLive.FormComponent do
     {:noreply, assign(socket, show_identification: !socket.assigns.show_identification)}
   end
 
+  def handle_event("toggle_photos", _params, socket) do
+    {:noreply, assign(socket, show_photos: !socket.assigns.show_photos)}
+  end
+
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :photos, ref)}
+  end
+
+  def handle_event("delete_photo", %{"id" => id}, socket) do
+    medium = Inventory.get_medium!(id)
+    {:ok, _} = Inventory.delete_medium(medium)
+
+    {:noreply, assign(socket, media: Inventory.list_media(socket.assigns.item))}
+  end
+
   def handle_event("save", %{"item" => item_params} = params, socket) do
     tag_ids =
       (params["tag_ids"] || [])
@@ -296,6 +389,7 @@ defmodule StowlyWeb.ItemLive.FormComponent do
     case Inventory.update_item(socket.assigns.item, item_params, tag_ids) do
       {:ok, item} ->
         save_related(item, params)
+        save_uploads(socket, item)
         notify_parent({:saved, item})
 
         {:noreply,
@@ -312,6 +406,7 @@ defmodule StowlyWeb.ItemLive.FormComponent do
     case Inventory.create_item(socket.assigns.collection, item_params, tag_ids) do
       {:ok, item} ->
         save_related(item, params)
+        save_uploads(socket, item)
         notify_parent({:saved, item})
 
         {:noreply,
@@ -341,6 +436,24 @@ defmodule StowlyWeb.ItemLive.FormComponent do
       end
     end
   end
+
+  defp save_uploads(socket, item) do
+    consume_uploaded_entries(socket, :photos, fn %{path: path}, entry ->
+      attrs =
+        Uploads.store(
+          %{path: path, client_name: entry.client_name, client_type: entry.client_type},
+          item.id
+        )
+
+      {:ok, _medium} = Inventory.create_medium(item, attrs)
+      {:ok, attrs}
+    end)
+  end
+
+  defp error_to_string(:too_large), do: "File is too large (max 20MB)"
+  defp error_to_string(:not_accepted), do: "File type not accepted"
+  defp error_to_string(:too_many_files), do: "Too many files (max 10)"
+  defp error_to_string(err), do: "Error: #{inspect(err)}"
 
   defp notify_parent(msg), do: send(self(), {__MODULE__, msg})
 end
