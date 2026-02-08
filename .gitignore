@@ -35,3 +35,6 @@ stowly-*.tar
 npm-debug.log
 /assets/node_modules/
 
+# Uploaded media files.
+/uploads/
+
