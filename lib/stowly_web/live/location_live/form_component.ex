@@ -70,6 +70,16 @@ defmodule StowlyWeb.LocationLive.FormComponent do
           <.button type="submit" class="btn-primary" phx-disable-with="Saving...">
             Save Location
           </.button>
+          <button
+            :if={@action == :edit}
+            type="button"
+            class="btn btn-ghost text-error"
+            phx-click="delete"
+            phx-target={@myself}
+            data-confirm="Delete this location? Sub-locations will become top-level and items will lose their location."
+          >
+            <.icon name="hero-trash" class="h-4 w-4" /> Delete
+          </button>
         </:actions>
       </.simple_form>
     </div>
@@ -110,6 +120,16 @@ defmodule StowlyWeb.LocationLive.FormComponent do
       )
 
     {:noreply, assign(socket, form: to_form(changeset, action: :validate))}
+  end
+
+  def handle_event("delete", _params, socket) do
+    {:ok, _} = Inventory.delete_storage_location(socket.assigns.location)
+    notify_parent(:deleted)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Location deleted")
+     |> push_patch(to: socket.assigns.patch)}
   end
 
   def handle_event("save", %{"storage_location" => params}, socket) do

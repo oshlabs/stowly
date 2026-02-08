@@ -41,13 +41,20 @@ defmodule StowlyWeb.LocationLive.Index do
 
   @impl true
   def handle_info({StowlyWeb.LocationLive.FormComponent, {:saved, _location}}, socket) do
+    {:noreply, refresh_locations(socket)}
+  end
+
+  def handle_info({StowlyWeb.LocationLive.FormComponent, :deleted}, socket) do
+    {:noreply, refresh_locations(socket)}
+  end
+
+  defp refresh_locations(socket) do
     collection = socket.assigns.collection
 
-    {:noreply,
-     assign(socket,
-       locations: Inventory.list_root_storage_locations(collection),
-       all_locations: Inventory.list_storage_locations(collection)
-     )}
+    assign(socket,
+      locations: Inventory.list_root_storage_locations(collection),
+      all_locations: Inventory.list_storage_locations(collection)
+    )
   end
 
   @impl true
