@@ -51,13 +51,19 @@ defmodule StowlyWeb.CoreComponents do
   def show_modal(id) do
     JS.show(to: "##{id}")
     |> JS.show(to: "##{id}-bg", transition: {"ease-out duration-200", "opacity-0", "opacity-100"})
-    |> JS.show(to: "##{id}-container", transition: {"ease-out duration-200", "opacity-0 scale-95", "opacity-100 scale-100"})
+    |> JS.show(
+      to: "##{id}-container",
+      transition: {"ease-out duration-200", "opacity-0 scale-95", "opacity-100 scale-100"}
+    )
     |> JS.focus_first(to: "##{id}-container")
   end
 
   def hide_modal(id) do
     JS.hide(to: "##{id}-bg", transition: {"ease-in duration-100", "opacity-100", "opacity-0"})
-    |> JS.hide(to: "##{id}-container", transition: {"ease-in duration-100", "opacity-100 scale-100", "opacity-0 scale-95"})
+    |> JS.hide(
+      to: "##{id}-container",
+      transition: {"ease-in duration-100", "opacity-100 scale-100", "opacity-0 scale-95"}
+    )
     |> JS.hide(to: "##{id}", transition: {"block", "block", "hidden"})
   end
 

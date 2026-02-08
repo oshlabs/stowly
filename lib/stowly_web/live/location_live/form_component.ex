@@ -19,17 +19,18 @@ defmodule StowlyWeb.LocationLive.FormComponent do
       >
         <.input field={@form[:name]} type="text" label="Name" placeholder="e.g., Living Room Shelf" />
         <.input field={@form[:location_type]} type="select" label="Type">
-          <option :for={t <- StorageLocation.location_types()} value={t}>
+          <option :for={t <- StorageLocation.location_types()} value={t} selected={t == to_string(@form[:location_type].value)}>
             {String.capitalize(t)}
           </option>
         </.input>
         <.input field={@form[:description]} type="textarea" label="Description" />
         <.input field={@form[:parent_id]} type="select" label="Parent Location">
-          <option value="">None (top-level)</option>
+          <option value="" selected={@form[:parent_id].value in [nil, ""]}>None (top-level)</option>
           <option
             :for={loc <- @all_locations}
             :if={loc.id != (@location && @location.id)}
             value={loc.id}
+            selected={to_string(loc.id) == to_string(@form[:parent_id].value)}
           >
             {loc.name} ({loc.location_type})
           </option>

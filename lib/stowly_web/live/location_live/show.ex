@@ -14,7 +14,8 @@ defmodule StowlyWeb.LocationLive.Show do
        collection: collection,
        location: location,
        breadcrumbs: breadcrumbs,
-       page_title: location.name
+       page_title: location.name,
+       show_delete_confirm: false
      )}
   end
 
@@ -24,13 +25,34 @@ defmodule StowlyWeb.LocationLive.Show do
   end
 
   @impl true
+  def handle_info({StowlyWeb.LocationLive.FormComponent, {:saved, location}}, socket) do
+    location = Inventory.get_storage_location!(location.id)
+    breadcrumbs = Inventory.storage_location_breadcrumbs(location)
+
+    {:noreply,
+     assign(socket,
+       location: location,
+       breadcrumbs: breadcrumbs,
+       page_title: location.name
+     )}
+  end
+
+  @impl true
   def handle_event("delete", _params, socket) do
+    {:noreply, assign(socket, show_delete_confirm: true)}
+  end
+
+  def handle_event("confirm_delete", _params, socket) do
     {:ok, _} = Inventory.delete_storage_location(socket.assigns.location)
 
     {:noreply,
      socket
      |> put_flash(:info, "Location deleted")
      |> push_navigate(to: ~p"/collections/#{socket.assigns.collection}/locations")}
+  end
+
+  def handle_event("cancel_delete", _params, socket) do
+    {:noreply, assign(socket, show_delete_confirm: false)}
   end
 
   @impl true
@@ -60,15 +82,31 @@ defmodule StowlyWeb.LocationLive.Show do
         >
           <.icon name="hero-pencil-square" class="h-4 w-4" /> Edit
         </.link>
-        <button
-          class="btn btn-ghost btn-sm text-error"
-          phx-click="delete"
-          data-confirm="Delete this location and unassign all items?"
-        >
+        <button class="btn btn-ghost btn-sm text-error" phx-click="delete">
           <.icon name="hero-trash" class="h-4 w-4" /> Delete
         </button>
       </:actions>
     </.header>
+
+    <div :if={@show_delete_confirm} class="alert alert-warning mt-6">
+      <.icon name="hero-exclamation-triangle" class="h-6 w-6" />
+      <div>
+        <h3 class="font-bold">Are you sure you want to delete this location?</h3>
+        <p :if={@location.children != []} class="text-sm">
+          {length(@location.children)} sub-location(s) will become top-level locations.
+        </p>
+        <p :if={@location.items != []} class="text-sm">
+          {length(@location.items)} item(s) will lose their location assignment.
+        </p>
+        <p :if={@location.children == [] and @location.items == []} class="text-sm">
+          This location is empty.
+        </p>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-sm" phx-click="cancel_delete">Cancel</button>
+        <button class="btn btn-sm btn-error" phx-click="confirm_delete">Delete</button>
+      </div>
+    </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
       <div :if={@location.children != []}>
