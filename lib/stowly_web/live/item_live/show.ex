@@ -115,7 +115,13 @@ defmodule StowlyWeb.ItemLive.Show do
         </div>
 
         <div :if={@item.tags != []} class="flex flex-wrap gap-2">
-          <span :for={tag <- @item.tags} class="badge badge-outline">{tag.name}</span>
+          <span
+            :for={tag <- @item.tags}
+            class="badge"
+            style={tag.color && "background-color: #{tag.color}; color: white; border-color: #{tag.color}"}
+          >
+            {tag.name}
+          </span>
         </div>
 
         <div :if={@item.notes} class="card bg-base-200">

@@ -181,7 +181,11 @@ defmodule StowlyWeb.ItemLive.Index do
             <td>{item.quantity}</td>
             <td>
               <div class="flex flex-wrap gap-1">
-                <span :for={tag <- item.tags} class="badge badge-sm badge-outline">
+                <span
+                  :for={tag <- item.tags}
+                  class="badge badge-sm"
+                  style={tag.color && "background-color: #{tag.color}; color: white; border-color: #{tag.color}"}
+                >
                   {tag.name}
                 </span>
               </div>
