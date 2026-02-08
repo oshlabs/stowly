@@ -17,38 +17,48 @@ defmodule StowlyWeb.CoreComponents do
 
   def modal(assigns) do
     ~H"""
-    <dialog
+    <div
       id={@id}
-      class="modal"
       phx-mounted={@show && show_modal(@id)}
       phx-remove={hide_modal(@id)}
+      data-cancel={@on_cancel}
+      class="hidden"
     >
-      <div class="modal-box">
-        <form method="dialog">
+      <div id={"#{@id}-bg"} class="fixed inset-0 bg-black/50 z-40" aria-hidden="true" />
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
+        phx-key="escape"
+      >
+        <div
+          id={"#{@id}-container"}
+          class="bg-base-100 rounded-box shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 relative"
+          phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
+        >
           <button
             class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-            phx-click={JS.exec(@on_cancel, "phx-remove")}
+            phx-click={JS.exec("data-cancel", to: "##{@id}")}
           >
             <.icon name="hero-x-mark" class="h-5 w-5" />
           </button>
-        </form>
-        {render_slot(@inner_block)}
+          {render_slot(@inner_block)}
+        </div>
       </div>
-      <form method="dialog" class="modal-backdrop">
-        <button phx-click={JS.exec(@on_cancel, "phx-remove")}>close</button>
-      </form>
-    </dialog>
+    </div>
     """
   end
 
   def show_modal(id) do
     JS.show(to: "##{id}")
-    |> JS.dispatch("showModal", to: "##{id}")
+    |> JS.show(to: "##{id}-bg", transition: {"ease-out duration-200", "opacity-0", "opacity-100"})
+    |> JS.show(to: "##{id}-container", transition: {"ease-out duration-200", "opacity-0 scale-95", "opacity-100 scale-100"})
+    |> JS.focus_first(to: "##{id}-container")
   end
 
   def hide_modal(id) do
-    JS.hide(to: "##{id}")
-    |> JS.dispatch("close", to: "##{id}")
+    JS.hide(to: "##{id}-bg", transition: {"ease-in duration-100", "opacity-100", "opacity-0"})
+    |> JS.hide(to: "##{id}-container", transition: {"ease-in duration-100", "opacity-100 scale-100", "opacity-0 scale-95"})
+    |> JS.hide(to: "##{id}", transition: {"block", "block", "hidden"})
   end
 
   @doc """
