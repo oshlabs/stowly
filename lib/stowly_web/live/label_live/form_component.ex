@@ -24,7 +24,7 @@ defmodule StowlyWeb.LabelLive.FormComponent do
       |> Labels.change_label_template(params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, form: to_form(changeset))}
+    {:noreply, assign(socket, changeset: changeset, form: to_form(changeset))}
   end
 
   def handle_event("add_element", %{"type" => type}, socket) do
@@ -157,7 +157,7 @@ defmodule StowlyWeb.LabelLive.FormComponent do
 
   defp parse_number(val), do: val
 
-  @field_options [
+  @item_field_options [
     {"Name", "name"},
     {"Description", "description"},
     {"Category", "category"},
@@ -168,9 +168,21 @@ defmodule StowlyWeb.LabelLive.FormComponent do
     {"Notes", "notes"}
   ]
 
+  @location_field_options [
+    {"Name", "name"},
+    {"Description", "description"},
+    {"Type", "type"},
+    {"Code", "code"},
+    {"Parent", "parent"}
+  ]
+
+  defp field_options_for("location"), do: @location_field_options
+  defp field_options_for(_), do: @item_field_options
+
   @impl true
   def render(assigns) do
-    assigns = assign(assigns, :field_options, @field_options)
+    target_type = Ecto.Changeset.get_field(assigns.changeset, :target_type) || "item"
+    assigns = assign(assigns, :field_options, field_options_for(target_type))
 
     ~H"""
     <div>
@@ -179,6 +191,10 @@ defmodule StowlyWeb.LabelLive.FormComponent do
       <.simple_form for={@form} id="template-form" phx-target={@myself} phx-change="validate" phx-submit="save">
         <.input field={@form[:name]} type="text" label="Template Name" />
         <.input field={@form[:description]} type="textarea" label="Description" />
+        <.input field={@form[:target_type]} type="select" label="Target Type">
+          <option value="item" selected={@form[:target_type].value == "item"}>Item</option>
+          <option value="location" selected={@form[:target_type].value == "location"}>Location</option>
+        </.input>
 
         <div class="grid grid-cols-2 gap-4">
           <.input field={@form[:width_mm]} type="number" label="Width (mm)" />

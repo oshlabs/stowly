@@ -8,23 +8,32 @@ defmodule StowlyWeb.LabelController do
     collection = Inventory.get_collection!(collection_id)
     template = Labels.get_label_template!(template_id)
 
-    item_ids =
-      case Map.get(params, "item_ids", []) do
-        ids when is_list(ids) -> Enum.map(ids, &String.to_integer/1)
-        id when is_binary(id) -> [String.to_integer(id)]
-        _ -> []
+    labels =
+      case template.target_type do
+        "location" ->
+          ids = parse_ids(Map.get(params, "location_ids", []))
+
+          Inventory.list_storage_locations(collection)
+          |> Stowly.Repo.preload(:parent)
+          |> Enum.filter(&(&1.id in ids))
+          |> Enum.map(&Labels.render_label(template, &1))
+
+        _ ->
+          ids = parse_ids(Map.get(params, "item_ids", []))
+
+          Inventory.list_items(collection)
+          |> Enum.filter(&(&1.id in ids))
+          |> Enum.map(&Labels.render_label(template, &1))
       end
-
-    items =
-      Inventory.list_items(collection)
-      |> Enum.filter(&(&1.id in item_ids))
-
-    labels = Enum.map(items, &Labels.render_label(template, &1))
 
     conn
     |> put_resp_content_type("text/html")
     |> send_resp(200, render_print_page(template, labels))
   end
+
+  defp parse_ids(ids) when is_list(ids), do: Enum.map(ids, &String.to_integer/1)
+  defp parse_ids(id) when is_binary(id), do: [String.to_integer(id)]
+  defp parse_ids(_), do: []
 
   defp render_print_page(template, labels) do
     labels_html =

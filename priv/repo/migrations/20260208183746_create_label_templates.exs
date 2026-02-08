@@ -10,6 +10,7 @@ defmodule Stowly.Repo.Migrations.CreateLabelTemplates do
       add :height_mm, :integer, null: false, default: 29
       add :template, :map, null: false, default: %{}
       add :is_default, :boolean, default: false
+      add :target_type, :string, null: false, default: "item"
 
       timestamps()
     end

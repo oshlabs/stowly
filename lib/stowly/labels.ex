@@ -54,23 +54,31 @@ defmodule Stowly.Labels do
   ## Rendering
 
   @doc """
-  Renders a label as an SVG string for the given item and template.
+  Renders a label as an SVG string for the given item or location and template.
 
   The template's `template` field contains a list of elements, each with:
   - `type`: "text", "field", "barcode", "qr"
-  - `field`: the item field name (for "field" type) or data source (defaults to "code")
+  - `field`: the field name (for "field" type) or data source (defaults to "code")
   - `x`, `y`: position in mm
   - `font_size`: font size in pt (for text elements)
   - `width`, `height`: dimensions (for barcode/qr)
   """
   def render_label(%LabelTemplate{} = template, %Stowly.Inventory.Item{} = item) do
+    render_label_svg(template, &resolve_item_field(item, &1))
+  end
+
+  def render_label(%LabelTemplate{} = template, %Stowly.Inventory.StorageLocation{} = location) do
+    render_label_svg(template, &resolve_location_field(location, &1))
+  end
+
+  defp render_label_svg(template, resolver) do
     elements = Map.get(template.template, "elements", [])
     width = template.width_mm
     height = template.height_mm
 
     svg_elements =
       elements
-      |> Enum.map(&render_element(&1, item))
+      |> Enum.map(&render_element(&1, resolver))
       |> Enum.reject(&is_nil/1)
       |> Enum.join("\n    ")
 
@@ -82,7 +90,7 @@ defmodule Stowly.Labels do
     """
   end
 
-  defp render_element(%{"type" => "text", "text" => text} = el, _item) do
+  defp render_element(%{"type" => "text", "text" => text} = el, _resolver) do
     x = Map.get(el, "x", 1)
     y = Map.get(el, "y", 5)
     font_size = Map.get(el, "font_size", 3)
@@ -91,8 +99,8 @@ defmodule Stowly.Labels do
     ~s(<text x="#{x}" y="#{y}" font-size="#{font_size}" font-weight="#{font_weight}" font-family="sans-serif">#{escape_svg(text)}</text>)
   end
 
-  defp render_element(%{"type" => "field", "field" => field} = el, item) do
-    value = resolve_field(item, field)
+  defp render_element(%{"type" => "field", "field" => field} = el, resolver) do
+    value = resolver.(field)
 
     if value && value != "" do
       x = Map.get(el, "x", 1)
@@ -104,8 +112,8 @@ defmodule Stowly.Labels do
     end
   end
 
-  defp render_element(%{"type" => "barcode"} = el, item) do
-    data = resolve_field(item, Map.get(el, "field", "code"))
+  defp render_element(%{"type" => "barcode"} = el, resolver) do
+    data = resolver.(Map.get(el, "field", "code"))
 
     if data && data != "" do
       case Stowly.Codes.generate_barcode_svg(data) do
@@ -123,8 +131,8 @@ defmodule Stowly.Labels do
     end
   end
 
-  defp render_element(%{"type" => "qr"} = el, item) do
-    data = resolve_field(item, Map.get(el, "field", "code"))
+  defp render_element(%{"type" => "qr"} = el, resolver) do
+    data = resolver.(Map.get(el, "field", "code"))
 
     if data && data != "" do
       svg = Stowly.Codes.generate_qr_svg(data)
@@ -142,30 +150,48 @@ defmodule Stowly.Labels do
 
   defp render_element(_, _), do: nil
 
-  defp resolve_field(item, "name"), do: item.name
-  defp resolve_field(item, "description"), do: item.description
-  defp resolve_field(item, "code"), do: item.code
-  defp resolve_field(item, "notes"), do: item.notes
-  defp resolve_field(item, "status"), do: item.status
+  # Item field resolution
 
-  defp resolve_field(item, "quantity"),
+  defp resolve_item_field(item, "name"), do: item.name
+  defp resolve_item_field(item, "description"), do: item.description
+  defp resolve_item_field(item, "code"), do: item.code
+  defp resolve_item_field(item, "notes"), do: item.notes
+  defp resolve_item_field(item, "status"), do: item.status
+
+  defp resolve_item_field(item, "quantity"),
     do: if(item.quantity, do: Integer.to_string(item.quantity))
 
-  defp resolve_field(item, "category") do
+  defp resolve_item_field(item, "category") do
     case item.category do
       %{name: name} -> name
       _ -> nil
     end
   end
 
-  defp resolve_field(item, "location") do
+  defp resolve_item_field(item, "location") do
     case item.storage_location do
       %{name: name} -> name
       _ -> nil
     end
   end
 
-  defp resolve_field(_, _), do: nil
+  defp resolve_item_field(_, _), do: nil
+
+  # Location field resolution
+
+  defp resolve_location_field(location, "name"), do: location.name
+  defp resolve_location_field(location, "description"), do: location.description
+  defp resolve_location_field(location, "code"), do: location.code
+  defp resolve_location_field(location, "type"), do: location.location_type
+
+  defp resolve_location_field(location, "parent") do
+    case location.parent do
+      %{name: name} -> name
+      _ -> nil
+    end
+  end
+
+  defp resolve_location_field(_, _), do: nil
 
   defp escape_svg(text) when is_binary(text) do
     text

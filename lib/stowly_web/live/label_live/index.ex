@@ -91,6 +91,9 @@ defmodule StowlyWeb.LabelLive.Index do
           <h3 class="card-title text-sm">
             {template.name}
             <span :if={template.is_default} class="badge badge-primary badge-sm">Default</span>
+            <span class="badge badge-ghost badge-sm">
+              {if template.target_type == "location", do: "Location", else: "Item"}
+            </span>
           </h3>
           <p :if={template.description} class="text-sm text-base-content/70">
             {template.description}
